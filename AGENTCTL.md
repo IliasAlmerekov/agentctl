@@ -774,7 +774,7 @@ agentctl uninstall
 - [x] Loop alerts in TUI
 - [x] `bun build --compile` for all three binaries
 - [x] launchd plist for daemon auto-start
-- [ ] README with demo GIF
+- [x] README with demo GIF
 
 **Out of scope for MVP:**
 
