@@ -2,11 +2,16 @@ import { detectLoop, hashArgs } from "../loop-detector.ts";
 import { getAgent, isBudgetExceeded } from "../budget.ts";
 import { getPendingInjection, markDelivered } from "../injections.ts";
 import type { Database } from "bun:sqlite";
-import type { PreToolUseInput, DaemonDecision } from "../../types.ts";
+import type {
+  AgentEvent,
+  PreToolUseInput,
+  DaemonDecision,
+} from "../../types.ts";
 
 export function handlePreTool(
   input: PreToolUseInput,
   db: Database,
+  broadcast?: (event: AgentEvent) => void,
 ): DaemonDecision {
   const { session_id, tool_name, tool_input } = input;
 
@@ -37,11 +42,13 @@ export function handlePreTool(
   // 3. Loop detection
   const loop = detectLoop(session_id, tool_name, tool_input, db);
   if (loop.detected) {
+    const message =
+      `${tool_name} called with identical arguments ` +
+      `${loop.count}x in the last 2 minutes. Try a different approach.`;
+    broadcast?.({ type: "loop_detected", session_id, message });
     return {
       block: true,
-      reason:
-        `⚠️ Loop detected: ${tool_name} called with identical arguments ` +
-        `${loop.count}× in the last 2 minutes. Try a different approach.`,
+      reason: `⚠️ Loop detected: ${message}`,
     };
   }
 

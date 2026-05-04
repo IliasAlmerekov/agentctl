@@ -36,7 +36,7 @@ Bun.serve<WSData>({
 
     if (pathname === "/hook/pre" && req.method === "POST") {
       const body = await req.json();
-      return Response.json(handlePreTool(body, db));
+      return Response.json(handlePreTool(body, db, broadcast));
     }
 
     if (pathname === "/hook/post" && req.method === "POST") {
