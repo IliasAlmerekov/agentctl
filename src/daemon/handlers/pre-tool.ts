@@ -17,6 +17,13 @@ export function handlePreTool(
 
   // 1. Token budget check
   const agent = getAgent(db, session_id);
+  if (agent?.status === "killed") {
+    return {
+      block: true,
+      reason: `⛔ AGENTCTL: Agent ${session_id} has been killed by the operator. Stop immediately.`,
+    };
+  }
+
   if (agent && isBudgetExceeded(agent)) {
     return {
       block: true,
