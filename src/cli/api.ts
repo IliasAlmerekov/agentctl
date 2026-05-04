@@ -31,7 +31,9 @@ export async function apiCap(sessionId: string, tokens: number) {
 }
 
 export async function apiKill(sessionId: string) {
-  return post<{ ok: boolean }>("/kill", { session_id: sessionId });
+  return post<import("../types.ts").KillResult>("/kill", {
+    session_id: sessionId,
+  });
 }
 
 export async function apiAgents() {

@@ -69,3 +69,11 @@ export interface CapRequest {
 export interface KillRequest {
   session_id: string;
 }
+
+export type KillStatus = "killed" | "already_killed" | "not_found";
+
+export interface KillResult {
+  ok: true;
+  session_id: string;
+  status: KillStatus;
+}

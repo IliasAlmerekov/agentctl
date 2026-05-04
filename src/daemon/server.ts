@@ -4,7 +4,8 @@ import { handlePostTool } from "./handlers/post-tool.ts";
 import { handleSubagent } from "./handlers/subagent.ts";
 import { initSchema, getAgents } from "./db.ts";
 import { createInjection } from "./injections.ts";
-import { setBudget, getAgent } from "./budget.ts";
+import { setBudget } from "./budget.ts";
+import { killAgent } from "./kill.ts";
 import { mkdirSync } from "fs";
 import type {
   WSData,
@@ -74,12 +75,11 @@ Bun.serve<WSData>({
 
     if (pathname === "/kill" && req.method === "POST") {
       const { session_id } = (await req.json()) as KillRequest;
-      db.run(
-        "UPDATE agents SET status = 'killed', ended_at = ? WHERE session_id = ?",
-        [Date.now(), session_id],
-      );
-      broadcast({ type: "agents_update", agents: getAgents(db) });
-      return Response.json({ ok: true });
+      const result = killAgent(db, session_id);
+      if (result.status !== "not_found") {
+        broadcast({ type: "agents_update", agents: getAgents(db) });
+      }
+      return Response.json(result);
     }
 
     if (pathname === "/agents" && req.method === "GET") {
