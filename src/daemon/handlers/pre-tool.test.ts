@@ -11,6 +11,25 @@ function createTestDb(): Database {
 }
 
 describe("handlePreTool", () => {
+  test("blocks a killed agent before allowing another tool call", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at, ended_at)
+       VALUES (?, 'killed', ?, ?)`,
+      ["killed-session", Date.now() - 1_000, Date.now()],
+    );
+    const input: PreToolUseInput = {
+      session_id: "killed-session",
+      tool_name: "Bash",
+      tool_input: { command: "rtk ls" },
+    };
+
+    const decision = handlePreTool(input, db);
+
+    expect(decision.block).toBe(true);
+    expect(decision.reason).toContain("Agent killed-session has been killed");
+  });
+
   test("broadcasts loop_detected when repeated tool input is blocked", () => {
     const db = createTestDb();
     const input: PreToolUseInput = {
