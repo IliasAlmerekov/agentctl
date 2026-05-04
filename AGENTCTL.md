@@ -759,21 +759,21 @@ agentctl uninstall
 
 **Week 1 — core**
 
-- [ ] Daemon: HTTP server, SQLite schema, WebSocket
-- [ ] PreToolUse hook: loop detection + injection delivery
-- [ ] PostToolUse hook: token accounting
-- [ ] SubagentStart/Stop hooks: agent tree tracking
-- [ ] `agentctl inject` and `agentctl cap` commands
-- [ ] `agentctl agents` command (JSON output)
-- [ ] `install.sh` for macOS (linux later)
+- [x] Daemon: HTTP server, SQLite schema, WebSocket
+- [x] PreToolUse hook: loop detection + injection delivery
+- [x] PostToolUse hook: token accounting
+- [x] SubagentStart/Stop hooks: agent tree tracking
+- [x] `agentctl inject` and `agentctl cap` commands
+- [x] `agentctl agents` command (JSON output)
+- [x] `install.sh` for macOS (linux later)
 
 **Week 2 — polish**
 
-- [ ] TUI (`agentctl watch`) with Ink
-- [ ] Token bar with colour threshold (green → yellow → red)
-- [ ] Loop alerts in TUI
-- [ ] `bun build --compile` for all three binaries
-- [ ] launchd plist for daemon auto-start
+- [x] TUI (`agentctl watch`) with Ink
+- [x] Token bar with colour threshold (green → yellow → red)
+- [x] Loop alerts in TUI
+- [x] `bun build --compile` for all three binaries
+- [x] launchd plist for daemon auto-start
 - [ ] README with demo GIF
 
 **Out of scope for MVP:**
