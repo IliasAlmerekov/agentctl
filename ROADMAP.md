@@ -38,7 +38,7 @@ Goal: make the three advertised commands behave exactly as described.
 Tasks:
 
 - [x] Add a killed-agent gate in `src/daemon/handlers/pre-tool.ts`.
-- [ ] Make `agentctl kill <session-id>` idempotent and explicit when the session does not exist.
+- [x] Make `agentctl kill <session-id>` idempotent and explicit when the session does not exist.
 - [ ] Decide whether killing an unknown agent should fail closed or return a clear CLI error.
 - [ ] Add tests for killed-agent blocking.
 - [ ] Add tests for injection delivery and one-time delivery.
