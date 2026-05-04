@@ -29,6 +29,10 @@ agentctl cap <agent-id> --tokens 50000
 agentctl kill <agent-id>
 ```
 
+## Demo
+
+![agentctl demo](docs/demo.gif)
+
 ## Install
 
 ```bash
