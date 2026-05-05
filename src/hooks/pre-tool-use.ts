@@ -3,8 +3,8 @@
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
 import { authHeaders, readAuthToken } from "../auth.ts";
+import { DAEMON_HTTP_ORIGIN } from "../config.ts";
 
-const DAEMON = "http://localhost:47823";
 const TIMEOUT_MS = 130;
 
 const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
@@ -12,7 +12,7 @@ const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
 let decision: DaemonDecision;
 
 try {
-  const res = await fetch(`${DAEMON}/hook/pre`, {
+  const res = await fetch(`${DAEMON_HTTP_ORIGIN}/hook/pre`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -54,13 +54,19 @@ agentctl kill <id>
 
 ## How it works
 
-Claude Code runs a hook script on every tool call. The hook calls the local daemon (`localhost:47823`) which decides whether to block, inject a message, or allow. The daemon tracks:
+Claude Code runs a hook script on every tool call. The hook calls the local daemon (`127.0.0.1:47823`) which decides whether to block, inject a message, or allow. The daemon tracks:
 
 - **Loop detection** — same tool + same args called 5× in 2 minutes → blocked
 - **Budget enforcement** — tokens_used ≥ token_budget → blocked with summary request
 - **Injection queue** — pending steering signals delivered at the next tool call boundary
 
 If the daemon is unreachable, hooks exit `0` — Claude is never blocked by agentctl being down.
+
+## Local security model
+
+agentctl is a single-user local control plane. The daemon binds only to IPv4 loopback (`127.0.0.1:47823`) and requires the local token from `~/.agentctl/auth-token` for CLI, TUI WebSocket, and hook requests.
+
+This protects against unauthenticated local HTTP clients accidentally or opportunistically controlling agents through the daemon port. It does not protect against code already running as your user that can read files under your home directory, replace agentctl binaries, or edit Claude Code hook settings.
 
 ## Architecture
 
@@ -69,7 +75,7 @@ Claude Code (agent + sub-agents)
          │ tool calls
          ▼
    Hook scripts (.ts)          ← < 150ms per call
-         │ HTTP POST localhost:47823
+         │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)
    ├── SQLite: agents.db

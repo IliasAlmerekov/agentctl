@@ -108,7 +108,7 @@ Claude Code (agent + sub-agents)
          │ tool calls
          ▼
    Hook scripts (.ts)          ← executed per tool call, < 150ms
-         │ HTTP POST localhost:47823
+         │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)       ← always-running local process
    ├── SQLite: agents.db       ← agent tree, tool calls, token counts
@@ -119,8 +119,10 @@ Claude Code (agent + sub-agents)
          │
     ┌────┴────┐
     ▼         ▼
-  CLI       Live TUI (Ink)
+   CLI       Live TUI (Ink)
 ```
+
+The daemon binds only to IPv4 loopback (`127.0.0.1:47823`) and requires the local token from `~/.agentctl/auth-token` on CLI, TUI WebSocket, and hook requests. This protects against unauthenticated local HTTP clients on the same machine, but not against code already running as the same user that can read the token or edit hook settings.
 
 ### Data model
 
@@ -216,7 +218,7 @@ agentctl/
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
 
-const DAEMON = "http://localhost:47823";
+const DAEMON = "http://127.0.0.1:47823";
 const TIMEOUT_MS = 150;
 
 const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
@@ -517,7 +519,7 @@ function Watch() {
   const [alerts, setAlerts] = useState<string[]>([]);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:47823");
+    const ws = new WebSocket("ws://127.0.0.1:47823");
     ws.onmessage = (e) => {
       const event: AgentEvent = JSON.parse(e.data);
       if (event.type === "agents_update") setAgents(event.agents);

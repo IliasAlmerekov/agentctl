@@ -1,11 +1,9 @@
 import { authHeaders, readAuthToken } from "../auth.ts";
-
-const DAEMON = "http://localhost:47823";
-const DAEMON_WS = "ws://localhost:47823";
+import { DAEMON_HTTP_ORIGIN, DAEMON_WS_ORIGIN } from "../config.ts";
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const token = readAuthToken();
-  const res = await fetch(`${DAEMON}${path}`, {
+  const res = await fetch(`${DAEMON_HTTP_ORIGIN}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(body),
@@ -18,7 +16,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${DAEMON}${path}`, {
+  const res = await fetch(`${DAEMON_HTTP_ORIGIN}${path}`, {
     headers: authHeaders(readAuthToken()),
   });
   if (!res.ok) {
@@ -53,7 +51,7 @@ export async function apiStatus() {
 export { authHeaders };
 
 export function daemonWsUrlWithToken(token: string): string {
-  return `${DAEMON_WS}?${new URLSearchParams({ token }).toString()}`;
+  return `${DAEMON_WS_ORIGIN}?${new URLSearchParams({ token }).toString()}`;
 }
 
 export function daemonWsUrl(): string {

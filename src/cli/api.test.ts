@@ -10,13 +10,13 @@ describe("CLI auth helpers", () => {
 
   test("adds the auth token to websocket URLs", () => {
     expect(daemonWsUrlWithToken("test-token")).toBe(
-      "ws://localhost:47823?token=test-token",
+      "ws://127.0.0.1:47823?token=test-token",
     );
   });
 
   test("URL-encodes websocket auth tokens", () => {
     expect(daemonWsUrlWithToken("token with spaces")).toBe(
-      "ws://localhost:47823?token=token+with+spaces",
+      "ws://127.0.0.1:47823?token=token+with+spaces",
     );
   });
 });
