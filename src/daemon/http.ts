@@ -24,6 +24,12 @@ type DaemonFetchOptions = {
 };
 
 const CLI_ENDPOINTS = new Set(["/inject", "/cap", "/kill", "/agents", "/status"]);
+const HOOK_ENDPOINTS = new Set([
+  "/hook/pre",
+  "/hook/post",
+  "/hook/subagent-start",
+  "/hook/subagent-stop",
+]);
 
 function unauthorized(): Response {
   return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -31,6 +37,10 @@ function unauthorized(): Response {
 
 function isCliEndpoint(pathname: string): boolean {
   return CLI_ENDPOINTS.has(pathname);
+}
+
+function isHookEndpoint(pathname: string): boolean {
+  return HOOK_ENDPOINTS.has(pathname);
 }
 
 function isWebSocketRequest(req: Request): boolean {
@@ -48,6 +58,14 @@ export function createDaemonFetch(
   ): Promise<Response | undefined> {
     const { pathname } = new URL(req.url);
     const { authToken } = options;
+
+    if (
+      authToken &&
+      (isCliEndpoint(pathname) || isHookEndpoint(pathname)) &&
+      !hasAuthHeader(req, authToken)
+    ) {
+      return unauthorized();
+    }
 
     if (pathname === "/hook/pre" && req.method === "POST") {
       const body = await req.json();
@@ -67,10 +85,6 @@ export function createDaemonFetch(
     if (pathname === "/hook/subagent-stop" && req.method === "POST") {
       const body = await req.json();
       return Response.json(handleSubagent("stop", body, db, broadcast));
-    }
-
-    if (authToken && isCliEndpoint(pathname) && !hasAuthHeader(req, authToken)) {
-      return unauthorized();
     }
 
     if (pathname === "/inject" && req.method === "POST") {
