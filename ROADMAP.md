@@ -66,7 +66,7 @@ Goal: prevent arbitrary local processes from controlling agentctl by posting to 
 
 Tasks:
 
-- [ ] Add a local auth token generated during install and stored under `~/.agentctl`.
+- [x] Add a local auth token generated during install and stored under `~/.agentctl`.
 - [ ] Require the token on CLI endpoints: `/inject`, `/cap`, `/kill`, `/agents`, `/status`, and WebSocket access.
 - [ ] Decide whether hook endpoints also require auth or use a separate hook token.
 - [ ] Bind explicitly to loopback and document the threat model.
