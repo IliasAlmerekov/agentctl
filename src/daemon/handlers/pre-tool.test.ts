@@ -94,6 +94,72 @@ describe("handlePreTool", () => {
     expect(runningDecision).toEqual({ block: false });
   });
 
+  test("delivers a pending injection as a blocking steering signal", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["injected-session", Date.now()],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at)
+       VALUES (?, ?, 'pending', ?)`,
+      ["injected-session", "use the smaller fix", Date.now()],
+    );
+
+    const decision = handlePreTool(
+      {
+        session_id: "injected-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk test" },
+      },
+      db,
+    );
+    const injection = db
+      .query<{ status: string; delivered_at: number | null }, []>(
+        "SELECT status, delivered_at FROM injections LIMIT 1",
+      )
+      .get();
+
+    expect(decision.block).toBe(true);
+    expect(decision.reason).toContain("STEERING SIGNAL");
+    expect(decision.reason).toContain("use the smaller fix");
+    expect(injection?.status).toBe("delivered");
+    expect(injection?.delivered_at).toBeNumber();
+  });
+
+  test("does not deliver the same injection more than once", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["injected-session", Date.now()],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at)
+       VALUES (?, ?, 'pending', ?)`,
+      ["injected-session", "only once", Date.now()],
+    );
+    const input: PreToolUseInput = {
+      session_id: "injected-session",
+      tool_name: "Bash",
+      tool_input: { command: "rtk test" },
+    };
+
+    const firstDecision = handlePreTool(input, db);
+    const secondDecision = handlePreTool(input, db);
+    const delivered = db
+      .query<{ count: number }, []>(
+        "SELECT COUNT(*) as count FROM injections WHERE status = 'delivered'",
+      )
+      .get();
+
+    expect(firstDecision.block).toBe(true);
+    expect(firstDecision.reason).toContain("only once");
+    expect(secondDecision).toEqual({ block: false });
+    expect(delivered?.count).toBe(1);
+  });
+
   test("broadcasts loop_detected when repeated tool input is blocked", () => {
     const db = createTestDb();
     const input: PreToolUseInput = {
