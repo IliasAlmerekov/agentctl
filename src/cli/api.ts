@@ -1,9 +1,13 @@
+import { authHeaders, readAuthToken } from "../auth.ts";
+
 const DAEMON = "http://localhost:47823";
+const DAEMON_WS = "ws://localhost:47823";
 
 async function post<T>(path: string, body: unknown): Promise<T> {
+  const token = readAuthToken();
   const res = await fetch(`${DAEMON}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(token) },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -14,7 +18,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${DAEMON}${path}`);
+  const res = await fetch(`${DAEMON}${path}`, {
+    headers: authHeaders(readAuthToken()),
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`agentctl daemon error ${res.status}: ${text}`);
@@ -44,6 +50,12 @@ export async function apiStatus() {
   return get<{ ok: boolean; running: number; total: number }>("/status");
 }
 
+export { authHeaders };
+
+export function daemonWsUrlWithToken(token: string): string {
+  return `${DAEMON_WS}?${new URLSearchParams({ token }).toString()}`;
+}
+
 export function daemonWsUrl(): string {
-  return "ws://localhost:47823";
+  return daemonWsUrlWithToken(readAuthToken());
 }

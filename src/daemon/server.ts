@@ -3,6 +3,7 @@ import { initSchema, getAgents } from "./db.ts";
 import { createDaemonFetch } from "./http.ts";
 import { mkdirSync } from "fs";
 import type { WSData, AgentEvent } from "../types.ts";
+import { readAuthToken } from "../auth.ts";
 
 const dbDir = `${process.env.HOME}/.agentctl`;
 mkdirSync(dbDir, { recursive: true });
@@ -10,6 +11,7 @@ mkdirSync(dbDir, { recursive: true });
 export const db = new Database(`${dbDir}/agents.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL");
 initSchema(db);
+const authToken = readAuthToken();
 
 const wsClients = new Set<import("bun").ServerWebSocket<WSData>>();
 
@@ -20,7 +22,7 @@ function broadcast(event: AgentEvent): void {
 
 Bun.serve<WSData>({
   port: 47823,
-  fetch: createDaemonFetch(db, broadcast),
+  fetch: createDaemonFetch(db, broadcast, { authToken }),
 
   websocket: {
     open(ws) {
