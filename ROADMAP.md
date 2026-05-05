@@ -41,7 +41,7 @@ Tasks:
 - [x] Make `agentctl kill <session-id>` idempotent and explicit when the session does not exist.
 - [x] Decide whether killing an unknown agent should fail closed or return a clear CLI error. Decision: return a clear CLI error for unknown sessions.
 - [x] Add tests for killed-agent blocking.
-- [ ] Add tests for injection delivery and one-time delivery.
+- [x] Add tests for injection delivery and one-time delivery.
 - [ ] Add tests for budget cap behavior before and after the threshold.
 - [ ] Add integration coverage for `inject`, `cap`, `kill`, `agents`, and `status`.
 
