@@ -43,7 +43,7 @@ Tasks:
 - [x] Add tests for killed-agent blocking.
 - [x] Add tests for injection delivery and one-time delivery.
 - [x] Add tests for budget cap behavior before and after the threshold.
-- [ ] Add integration coverage for `inject`, `cap`, `kill`, `agents`, and `status`.
+- [x] Add integration coverage for `inject`, `cap`, `kill`, `agents`, and `status`.
 
 Verification:
 
