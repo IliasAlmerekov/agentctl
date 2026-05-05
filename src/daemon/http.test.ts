@@ -226,13 +226,13 @@ describe("daemon HTTP endpoints", () => {
     expect(server.upgraded).toBe(true);
   });
 
-  test("leaves hook endpoints unauthenticated", async () => {
+  test("requires the same auth token for hook endpoints", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
       authToken: "test-token",
     });
 
-    const response = expectResponse(
+    const missingAuth = expectResponse(
       await fetchDaemon(
         await jsonRequest("/hook/pre", {
           session_id: "hook-session",
@@ -241,8 +241,26 @@ describe("daemon HTTP endpoints", () => {
         }),
       ),
     );
+    const validAuth = expectResponse(
+      await fetchDaemon(
+        await jsonRequest(
+          "/hook/pre",
+          {
+            session_id: "hook-session",
+            tool_name: "Bash",
+            tool_input: { command: "rtk test" },
+          },
+          "test-token",
+        ),
+      ),
+    );
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ block: false });
+    expect(missingAuth.status).toBe(401);
+    expect(await missingAuth.json()).toEqual({
+      ok: false,
+      error: "unauthorized",
+    });
+    expect(validAuth.status).toBe(200);
+    expect(await validAuth.json()).toEqual({ block: false });
   });
 });

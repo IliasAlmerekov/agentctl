@@ -2,6 +2,7 @@
 // Must exit in < 150ms. Logic lives in the daemon.
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
+import { authHeaders, readAuthToken } from "../auth.ts";
 
 const DAEMON = "http://localhost:47823";
 const TIMEOUT_MS = 130;
@@ -13,7 +14,10 @@ let decision: DaemonDecision;
 try {
   const res = await fetch(`${DAEMON}/hook/pre`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(readAuthToken()),
+    },
     body: JSON.stringify(input),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
