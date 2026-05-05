@@ -4,17 +4,21 @@ import { initSchema } from "./db.ts";
 import { createDaemonFetch } from "./http.ts";
 import type { AgentEvent } from "../types.ts";
 
+const TEST_TOKEN = "test-token";
+const WRONG_TOKEN = "wrong-token";
+const UNAUTHORIZED_BODY = { ok: false, error: "unauthorized" };
+
 function createTestDb(): Database {
   const db = new Database(":memory:");
   initSchema(db);
   return db;
 }
 
-async function jsonRequest(
+function jsonRequest(
   path: string,
   body: unknown,
   token?: string,
-): Promise<Request> {
+): Request {
   return new Request(`http://agentctl.test${path}`, {
     method: "POST",
     headers: {
@@ -42,12 +46,18 @@ function expectResponse(response: Response | undefined): Response {
   return response as Response;
 }
 
+async function expectUnauthorized(response: Response | undefined): Promise<void> {
+  const unauthorized = expectResponse(response);
+  expect(unauthorized.status).toBe(401);
+  expect(await unauthorized.json()).toEqual(UNAUTHORIZED_BODY);
+}
+
 describe("daemon HTTP endpoints", () => {
   test("covers inject, cap, kill, agents, and status", async () => {
     const db = createTestDb();
     const events: AgentEvent[] = [];
     const fetchDaemon = createDaemonFetch(db, (event) => events.push(event), {
-      authToken: "test-token",
+      authToken: TEST_TOKEN,
     });
 
     db.run(
@@ -63,32 +73,35 @@ describe("daemon HTTP endpoints", () => {
 
     const injectResponse = expectResponse(
       await fetchDaemon(
-        await jsonRequest("/inject", {
-          session_id: "agent-a",
-          message: "use sqlite",
-        },
-        "test-token"),
+        jsonRequest(
+          "/inject",
+          {
+            session_id: "agent-a",
+            message: "use sqlite",
+          },
+          TEST_TOKEN,
+        ),
       ),
     );
     const capResponse = expectResponse(
       await fetchDaemon(
-        await jsonRequest(
+        jsonRequest(
           "/cap",
           { session_id: "agent-a", tokens: 50 },
-          "test-token",
+          TEST_TOKEN,
         ),
       ),
     );
     const killResponse = expectResponse(
       await fetchDaemon(
-        await jsonRequest("/kill", { session_id: "agent-b" }, "test-token"),
+        jsonRequest("/kill", { session_id: "agent-b" }, TEST_TOKEN),
       ),
     );
     const agentsResponse = expectResponse(
-      await fetchDaemon(getRequest("/agents", "test-token")),
+      await fetchDaemon(getRequest("/agents", TEST_TOKEN)),
     );
     const statusResponse = expectResponse(
-      await fetchDaemon(getRequest("/status", "test-token")),
+      await fetchDaemon(getRequest("/status", TEST_TOKEN)),
     );
 
     const injection = db
@@ -136,131 +149,167 @@ describe("daemon HTTP endpoints", () => {
     );
   });
 
-  test("requires auth token for CLI HTTP endpoints", async () => {
+  test("covers missing, invalid, and valid auth for CLI HTTP endpoints", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
-      authToken: "test-token",
+      authToken: TEST_TOKEN,
     });
 
-    const protectedRequests = [
-      await jsonRequest("/inject", {
-        session_id: "agent-a",
-        message: "use sqlite",
-      }),
-      await jsonRequest("/cap", { session_id: "agent-a", tokens: 50 }),
-      await jsonRequest("/kill", { session_id: "agent-a" }),
-      getRequest("/agents"),
-      getRequest("/status"),
+    const protectedEndpoints = [
+      {
+        name: "inject",
+        request: (token?: string) =>
+          jsonRequest(
+            "/inject",
+            {
+              session_id: "agent-a",
+              message: "use sqlite",
+            },
+            token,
+          ),
+        expectedBody: { ok: true },
+      },
+      {
+        name: "cap",
+        request: (token?: string) =>
+          jsonRequest("/cap", { session_id: "agent-a", tokens: 50 }, token),
+        expectedBody: { ok: true },
+      },
+      {
+        name: "kill",
+        request: (token?: string) =>
+          jsonRequest("/kill", { session_id: "agent-a" }, token),
+        expectedBody: {
+          ok: true,
+          session_id: "agent-a",
+          status: "not_found",
+        },
+      },
+      {
+        name: "agents",
+        request: (token?: string) => getRequest("/agents", token),
+        expectedBody: [],
+      },
+      {
+        name: "status",
+        request: (token?: string) => getRequest("/status", token),
+        expectedBody: { ok: true, running: 0, total: 0 },
+      },
     ];
 
-    for (const request of protectedRequests) {
-      const missingAuth = expectResponse(await fetchDaemon(request));
-      expect(missingAuth.status).toBe(401);
-      expect(await missingAuth.json()).toEqual({
-        ok: false,
-        error: "unauthorized",
-      });
+    for (const endpoint of protectedEndpoints) {
+      await expectUnauthorized(await fetchDaemon(endpoint.request()));
+      await expectUnauthorized(await fetchDaemon(endpoint.request(WRONG_TOKEN)));
+
+      const validAuth = expectResponse(
+        await fetchDaemon(endpoint.request(TEST_TOKEN)),
+      );
+      expect(validAuth.status, endpoint.name).toBe(200);
+      expect(await validAuth.json()).toEqual(endpoint.expectedBody);
     }
-
-    const invalidAuth = expectResponse(
-      await fetchDaemon(
-        await jsonRequest(
-          "/inject",
-          {
-            session_id: "agent-a",
-            message: "use sqlite",
-          },
-          "wrong-token",
-        ),
-      ),
-    );
-    const validAuth = expectResponse(
-      await fetchDaemon(
-        await jsonRequest(
-          "/inject",
-          {
-            session_id: "agent-a",
-            message: "use sqlite",
-          },
-          "test-token",
-        ),
-      ),
-    );
-
-    expect(invalidAuth.status).toBe(401);
-    expect(await invalidAuth.json()).toEqual({
-      ok: false,
-      error: "unauthorized",
-    });
-    expect(validAuth.status).toBe(200);
-    expect(await validAuth.json()).toEqual({ ok: true });
   });
 
-  test("requires auth token for websocket access", async () => {
+  test("covers missing, invalid, and valid auth for websocket access", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
-      authToken: "test-token",
+      authToken: TEST_TOKEN,
     });
+    let upgrades = 0;
     const server = {
-      upgraded: false,
       upgrade() {
-        this.upgraded = true;
+        upgrades += 1;
         return true;
       },
     };
 
-    const missingAuth = expectResponse(
+    await expectUnauthorized(
       await fetchDaemon(websocketRequest("/watch"), server),
     );
-    const invalidAuth = expectResponse(
-      await fetchDaemon(websocketRequest("/watch?token=wrong-token"), server),
+    await expectUnauthorized(
+      await fetchDaemon(websocketRequest(`/watch?token=${WRONG_TOKEN}`), server),
     );
     const validAuth = await fetchDaemon(
-      websocketRequest("/watch?token=test-token"),
+      websocketRequest(`/watch?token=${TEST_TOKEN}`),
       server,
     );
 
-    expect(missingAuth.status).toBe(401);
-    expect(invalidAuth.status).toBe(401);
     expect(validAuth).toBeUndefined();
-    expect(server.upgraded).toBe(true);
+    expect(upgrades).toBe(1);
   });
 
-  test("requires the same auth token for hook endpoints", async () => {
+  test("covers missing, invalid, and valid auth for hook endpoints", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
-      authToken: "test-token",
+      authToken: TEST_TOKEN,
     });
 
-    const missingAuth = expectResponse(
-      await fetchDaemon(
-        await jsonRequest("/hook/pre", {
-          session_id: "hook-session",
-          tool_name: "Bash",
-          tool_input: { command: "rtk test" },
-        }),
-      ),
-    );
-    const validAuth = expectResponse(
-      await fetchDaemon(
-        await jsonRequest(
-          "/hook/pre",
-          {
-            session_id: "hook-session",
-            tool_name: "Bash",
-            tool_input: { command: "rtk test" },
-          },
-          "test-token",
-        ),
-      ),
-    );
+    const hookEndpoints = [
+      {
+        name: "pre",
+        request: (token?: string) =>
+          jsonRequest(
+            "/hook/pre",
+            {
+              session_id: "hook-session",
+              tool_name: "Bash",
+              tool_input: { command: "rtk test" },
+            },
+            token,
+          ),
+        expectedBody: { block: false },
+      },
+      {
+        name: "post",
+        request: (token?: string) =>
+          jsonRequest(
+            "/hook/post",
+            {
+              session_id: "hook-session",
+              tool_name: "Bash",
+              tool_input: { command: "rtk test" },
+              tool_response: { ok: true },
+              tokens_used: 1,
+            },
+            token,
+          ),
+        expectedBody: { ok: true },
+      },
+      {
+        name: "subagent-start",
+        request: (token?: string) =>
+          jsonRequest(
+            "/hook/subagent-start",
+            {
+              session_id: "hook-session",
+              description: "auth coverage",
+            },
+            token,
+          ),
+        expectedBody: { ok: true },
+      },
+      {
+        name: "subagent-stop",
+        request: (token?: string) =>
+          jsonRequest(
+            "/hook/subagent-stop",
+            {
+              session_id: "hook-session",
+            },
+            token,
+          ),
+        expectedBody: { ok: true },
+      },
+    ];
 
-    expect(missingAuth.status).toBe(401);
-    expect(await missingAuth.json()).toEqual({
-      ok: false,
-      error: "unauthorized",
-    });
-    expect(validAuth.status).toBe(200);
-    expect(await validAuth.json()).toEqual({ block: false });
+    for (const endpoint of hookEndpoints) {
+      await expectUnauthorized(await fetchDaemon(endpoint.request()));
+      await expectUnauthorized(await fetchDaemon(endpoint.request(WRONG_TOKEN)));
+
+      const validAuth = expectResponse(
+        await fetchDaemon(endpoint.request(TEST_TOKEN)),
+      );
+      expect(validAuth.status, endpoint.name).toBe(200);
+      expect(await validAuth.json()).toEqual(endpoint.expectedBody);
+    }
   });
 });
