@@ -71,7 +71,7 @@ Tasks:
 - [x] Decide whether hook endpoints also require auth or use a separate hook token. Decision: hook endpoints require the same local auth token; no separate hook token for the single-user local model.
 - [x] Bind explicitly to loopback and document the threat model.
 - [x] Add tests for missing, invalid, and valid auth.
-- [ ] Ensure auth failures never produce confusing hook behavior.
+- [x] Ensure auth failures never produce confusing hook behavior.
 
 Verification:
 

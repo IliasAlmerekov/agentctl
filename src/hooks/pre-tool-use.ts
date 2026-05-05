@@ -2,28 +2,13 @@
 // Must exit in < 150ms. Logic lives in the daemon.
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
-import { authHeaders, readAuthToken } from "../auth.ts";
-import { DAEMON_HTTP_ORIGIN } from "../config.ts";
-
-const TIMEOUT_MS = 130;
+import { sendHookRequest } from "./daemon-client.ts";
 
 const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
 
-let decision: DaemonDecision;
+const decision = await sendHookRequest<DaemonDecision>("/hook/pre", input);
 
-try {
-  const res = await fetch(`${DAEMON_HTTP_ORIGIN}/hook/pre`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(readAuthToken()),
-    },
-    body: JSON.stringify(input),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  decision = (await res.json()) as DaemonDecision;
-} catch {
-  // Daemon unavailable → fail open, never block Claude
+if (!decision) {
   process.exit(0);
 }
 
