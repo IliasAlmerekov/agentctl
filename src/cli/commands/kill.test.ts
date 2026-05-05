@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatKillResult } from "./kill.ts";
+import { formatKillResult, renderKillResult } from "./kill.ts";
 
 describe("formatKillResult", () => {
   test("formats a normal kill result", () => {
@@ -29,6 +29,50 @@ describe("formatKillResult", () => {
         session_id: "missing-session",
         status: "not_found",
       }),
-    ).toBe("! Agent missing- not found");
+    ).toBe("✗ Agent missing- not found");
+  });
+});
+
+describe("renderKillResult", () => {
+  test("renders successful kills as stdout with exit code 0", () => {
+    expect(
+      renderKillResult("running-session", {
+        ok: true,
+        session_id: "running-session",
+        status: "killed",
+      }),
+    ).toEqual({
+      message: "✓ Agent running- killed",
+      stream: "stdout",
+      exitCode: 0,
+    });
+  });
+
+  test("renders repeated kills as stdout with exit code 0", () => {
+    expect(
+      renderKillResult("killed-session", {
+        ok: true,
+        session_id: "killed-session",
+        status: "already_killed",
+      }),
+    ).toEqual({
+      message: "✓ Agent killed-s already killed",
+      stream: "stdout",
+      exitCode: 0,
+    });
+  });
+
+  test("renders missing sessions as a CLI error", () => {
+    expect(
+      renderKillResult("missing-session", {
+        ok: true,
+        session_id: "missing-session",
+        status: "not_found",
+      }),
+    ).toEqual({
+      message: "✗ Agent missing- not found",
+      stream: "stderr",
+      exitCode: 1,
+    });
   });
 });
