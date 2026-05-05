@@ -94,6 +94,56 @@ describe("handlePreTool", () => {
     expect(runningDecision).toEqual({ block: false });
   });
 
+  test("allows tool calls while token usage is below the budget cap", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, tokens_used, token_budget, started_at)
+       VALUES (?, 'running', ?, ?, ?)`,
+      ["budget-session", 99, 100, Date.now()],
+    );
+
+    const decision = handlePreTool(
+      {
+        session_id: "budget-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk test" },
+      },
+      db,
+    );
+    const calls = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
+
+    expect(decision).toEqual({ block: false });
+    expect(calls?.count).toBe(1);
+  });
+
+  test("blocks tool calls when token usage reaches the budget cap", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, tokens_used, token_budget, started_at)
+       VALUES (?, 'running', ?, ?, ?)`,
+      ["budget-session", 100, 100, Date.now()],
+    );
+
+    const decision = handlePreTool(
+      {
+        session_id: "budget-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk test" },
+      },
+      db,
+    );
+    const calls = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
+
+    expect(decision.block).toBe(true);
+    expect(decision.reason).toContain("Token budget exceeded");
+    expect(decision.reason).toContain("100 / 100 tokens");
+    expect(calls?.count).toBe(0);
+  });
+
   test("delivers a pending injection as a blocking steering signal", () => {
     const db = createTestDb();
     db.run(
