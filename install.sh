@@ -4,6 +4,7 @@ set -euo pipefail
 AGENTCTL_HOME="$HOME/.agentctl"
 BIN_DIR="$AGENTCTL_HOME/bin"
 HOOKS_DIR="$BIN_DIR/hooks"
+AUTH_TOKEN_FILE="$AGENTCTL_HOME/auth-token"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 REPO="you/agentctl"  # update before release
 
@@ -26,6 +27,24 @@ VERSION="${AGENTCTL_VERSION:-latest}"
 BASE_URL="https://github.com/$REPO/releases/${VERSION}/download"
 
 mkdir -p "$HOOKS_DIR"
+
+generate_auth_token() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
+    return
+  fi
+
+  od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
+}
+
+if [[ ! -f "$AUTH_TOKEN_FILE" ]]; then
+  umask 077
+  generate_auth_token > "$AUTH_TOKEN_FILE"
+  chmod 600 "$AUTH_TOKEN_FILE"
+  echo "Generated local auth token at $AUTH_TOKEN_FILE"
+else
+  chmod 600 "$AUTH_TOKEN_FILE"
+fi
 
 echo "Downloading agentctl $VERSION for $PLATFORM..."
 
