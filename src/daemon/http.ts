@@ -13,20 +13,41 @@ import { killAgent } from "./kill.ts";
 import { handlePostTool } from "./handlers/post-tool.ts";
 import { handlePreTool } from "./handlers/pre-tool.ts";
 import { handleSubagent } from "./handlers/subagent.ts";
+import { hasAuthHeader, hasAuthQueryToken } from "../auth.ts";
 
 type UpgradeServer = {
   upgrade(req: Request, options: { data: WSData }): boolean;
 };
 
+type DaemonFetchOptions = {
+  authToken?: string;
+};
+
+const CLI_ENDPOINTS = new Set(["/inject", "/cap", "/kill", "/agents", "/status"]);
+
+function unauthorized(): Response {
+  return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+}
+
+function isCliEndpoint(pathname: string): boolean {
+  return CLI_ENDPOINTS.has(pathname);
+}
+
+function isWebSocketRequest(req: Request): boolean {
+  return req.headers.get("upgrade")?.toLowerCase() === "websocket";
+}
+
 export function createDaemonFetch(
   db: Database,
   broadcast: (event: AgentEvent) => void,
+  options: DaemonFetchOptions = {},
 ) {
   return async function fetchDaemon(
     req: Request,
     server?: UpgradeServer,
   ): Promise<Response | undefined> {
     const { pathname } = new URL(req.url);
+    const { authToken } = options;
 
     if (pathname === "/hook/pre" && req.method === "POST") {
       const body = await req.json();
@@ -46,6 +67,10 @@ export function createDaemonFetch(
     if (pathname === "/hook/subagent-stop" && req.method === "POST") {
       const body = await req.json();
       return Response.json(handleSubagent("stop", body, db, broadcast));
+    }
+
+    if (authToken && isCliEndpoint(pathname) && !hasAuthHeader(req, authToken)) {
+      return unauthorized();
     }
 
     if (pathname === "/inject" && req.method === "POST") {
@@ -83,6 +108,15 @@ export function createDaemonFetch(
       const agents = getAgents(db);
       const running = agents.filter((a) => a.status === "running").length;
       return Response.json({ ok: true, running, total: agents.length });
+    }
+
+    if (
+      authToken &&
+      server &&
+      isWebSocketRequest(req) &&
+      !hasAuthQueryToken(req, authToken)
+    ) {
+      return unauthorized();
     }
 
     if (server?.upgrade(req, { data: { connectedAt: Date.now() } })) {
