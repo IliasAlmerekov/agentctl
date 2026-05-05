@@ -4,6 +4,7 @@ import { createDaemonFetch } from "./http.ts";
 import { mkdirSync } from "fs";
 import type { WSData, AgentEvent } from "../types.ts";
 import { readAuthToken } from "../auth.ts";
+import { daemonListenOptions } from "../config.ts";
 
 const dbDir = `${process.env.HOME}/.agentctl`;
 mkdirSync(dbDir, { recursive: true });
@@ -21,7 +22,7 @@ function broadcast(event: AgentEvent): void {
 }
 
 Bun.serve<WSData>({
-  port: 47823,
+  ...daemonListenOptions(),
   fetch: createDaemonFetch(db, broadcast, { authToken }),
 
   websocket: {
@@ -36,4 +37,4 @@ Bun.serve<WSData>({
   },
 });
 
-console.log("agentctl daemon listening on :47823");
+console.log("agentctl daemon listening on 127.0.0.1:47823");

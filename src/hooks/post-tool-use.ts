@@ -1,13 +1,13 @@
 import type { PostToolUseInput } from "../types.ts";
 import { authHeaders, readAuthToken } from "../auth.ts";
+import { DAEMON_HTTP_ORIGIN } from "../config.ts";
 
-const DAEMON = "http://localhost:47823";
 const TIMEOUT_MS = 130;
 
 const input: PostToolUseInput = JSON.parse(await Bun.stdin.text());
 
 try {
-  await fetch(`${DAEMON}/hook/post`, {
+  await fetch(`${DAEMON_HTTP_ORIGIN}/hook/post`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

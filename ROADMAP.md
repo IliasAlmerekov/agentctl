@@ -13,7 +13,7 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 Known production gaps:
 
 - `agentctl kill` marks an agent as killed in SQLite, but the pre-tool gate does not yet block killed agents.
-- The daemon listens on fixed unauthenticated `localhost:47823`.
+- Local daemon auth is token-based; auth failure UX still needs hardening.
 - Installer and README still reference the placeholder repository `you/agentctl`.
 - Restarted daemon state can show stale historical agents as `running`.
 - Documentation promises some behavior that is not implemented yet, such as uninstall.
@@ -69,7 +69,7 @@ Tasks:
 - [x] Add a local auth token generated during install and stored under `~/.agentctl`.
 - [x] Require the token on CLI endpoints: `/inject`, `/cap`, `/kill`, `/agents`, `/status`, and WebSocket access.
 - [x] Decide whether hook endpoints also require auth or use a separate hook token. Decision: hook endpoints require the same local auth token; no separate hook token for the single-user local model.
-- [ ] Bind explicitly to loopback and document the threat model.
+- [x] Bind explicitly to loopback and document the threat model.
 - [ ] Add tests for missing, invalid, and valid auth.
 - [ ] Ensure auth failures never produce confusing hook behavior.
 
