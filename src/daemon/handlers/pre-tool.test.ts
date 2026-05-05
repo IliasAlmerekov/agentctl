@@ -30,6 +30,70 @@ describe("handlePreTool", () => {
     expect(decision.reason).toContain("Agent killed-session has been killed");
   });
 
+  test("blocks killed agents before delivering pending injections", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at, ended_at)
+       VALUES (?, 'killed', ?, ?)`,
+      ["killed-session", Date.now() - 1_000, Date.now()],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at)
+       VALUES (?, ?, 'pending', ?)`,
+      ["killed-session", "change direction", Date.now()],
+    );
+
+    const decision = handlePreTool(
+      {
+        session_id: "killed-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+      },
+      db,
+    );
+    const injection = db
+      .query<{ status: string }, []>("SELECT status FROM injections LIMIT 1")
+      .get();
+
+    expect(decision.block).toBe(true);
+    expect(decision.reason).toContain("has been killed");
+    expect(injection?.status).toBe("pending");
+  });
+
+  test("keeps killed-agent blocking scoped to the killed session", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at, ended_at)
+       VALUES (?, 'killed', ?, ?)`,
+      ["killed-session", Date.now() - 1_000, Date.now()],
+    );
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["running-session", Date.now()],
+    );
+
+    const killedDecision = handlePreTool(
+      {
+        session_id: "killed-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+      },
+      db,
+    );
+    const runningDecision = handlePreTool(
+      {
+        session_id: "running-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+      },
+      db,
+    );
+
+    expect(killedDecision.block).toBe(true);
+    expect(runningDecision).toEqual({ block: false });
+  });
+
   test("broadcasts loop_detected when repeated tool input is blocked", () => {
     const db = createTestDb();
     const input: PreToolUseInput = {
