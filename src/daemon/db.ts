@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import type { Agent } from "../types.ts";
 
 export const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
+export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface DaemonBoot {
   boot_id: string;
@@ -49,7 +50,38 @@ export function initSchema(db: Database): void {
       started_at    INTEGER NOT NULL,
       heartbeat_at  INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS schema_metadata (
+      key         TEXT PRIMARY KEY,
+      value       TEXT NOT NULL,
+      updated_at  INTEGER NOT NULL
+    );
   `);
+  recordSchemaVersion(db);
+}
+
+function recordSchemaVersion(db: Database, now = Date.now()): void {
+  db.run(
+    `INSERT INTO schema_metadata (key, value, updated_at)
+     VALUES ('schema_version', ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       value = excluded.value,
+       updated_at = excluded.updated_at
+     WHERE schema_metadata.value != excluded.value`,
+    [String(CURRENT_SCHEMA_VERSION), now],
+  );
+}
+
+export function getSchemaVersion(db: Database): number | null {
+  const row = db
+    .query<{ value: string }, []>(
+      "SELECT value FROM schema_metadata WHERE key = 'schema_version'",
+    )
+    .get();
+  if (!row) return null;
+
+  const version = Number(row.value);
+  return Number.isInteger(version) ? version : null;
 }
 
 export function reconcileRunningAgents(db: Database): void {
