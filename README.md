@@ -36,7 +36,7 @@ agentctl kill <agent-id>
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/you/agentctl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | bash
 ```
 
 Installs binaries to `~/.agentctl/bin/`, patches `~/.claude/settings.json` with hooks, and registers the daemon as a background process (launchd on macOS, systemd on Linux).

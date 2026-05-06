@@ -12,7 +12,6 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- Installer and README still reference the placeholder repository `you/agentctl`.
 - Documentation promises some behavior that is not implemented yet, such as uninstall.
 
 ## Release Bar
@@ -117,7 +116,7 @@ Goal: make installation and release reproducible for real users.
 
 Tasks:
 
-- [ ] Replace `you/agentctl` with the real repository owner/name.
+- [x] Replace the placeholder repository with the real repository owner/name.
 - [ ] Build artifacts for `darwin-arm64`, `darwin-x64`, and `linux-x64`.
 - [ ] Publish checksums for all release artifacts.
 - [ ] Verify checksums in `install.sh` before chmod/install.
@@ -184,7 +183,7 @@ Tasks:
 Verification:
 
 ```bash
-rtk rg -n "you/agentctl|uninstall|TODO|later|not implemented" README.md AGENTCTL.md ROADMAP.md install.sh src
+rtk rg -n "uninstall|TODO|later|not implemented" README.md AGENTCTL.md ROADMAP.md install.sh src
 rtk env PATH="$HOME/.bun/bin:$PATH" bun run typecheck
 ```
 
