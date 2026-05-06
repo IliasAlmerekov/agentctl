@@ -711,7 +711,7 @@ Hooks are compiled to standalone binaries (`bun build --compile`) so Claude Code
 Single command, like RTK:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/you/agentctl/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | bash
 ```
 
 `install.sh` does five things:

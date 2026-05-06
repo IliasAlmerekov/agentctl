@@ -6,7 +6,7 @@ BIN_DIR="$AGENTCTL_HOME/bin"
 HOOKS_DIR="$BIN_DIR/hooks"
 AUTH_TOKEN_FILE="$AGENTCTL_HOME/auth-token"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-REPO="you/agentctl"  # update before release
+REPO="IliasAlmerekov/agentctl"
 
 # ─── 1. Detect platform ───────────────────────────────────────────────────────
 OS="$(uname -s)"
