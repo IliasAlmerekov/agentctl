@@ -12,10 +12,8 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- `agentctl kill` marks an agent as killed in SQLite, but the pre-tool gate does not yet block killed agents.
-- Local daemon auth is token-based; auth failure UX still needs hardening.
+- Lifecycle persistence still lacks daemon boot/heartbeat metadata, retention cleanup, and database migration metadata.
 - Installer and README still reference the placeholder repository `you/agentctl`.
-- Restarted daemon state can show stale historical agents as `running`.
 - Documentation promises some behavior that is not implemented yet, such as uninstall.
 
 ## Release Bar
@@ -93,12 +91,12 @@ Goal: make daemon restarts, stale sessions, and old SQLite state predictable.
 
 Tasks:
 
-- [ ] Add a startup reconciliation step for previously `running` sessions.
+- [x] Add a startup reconciliation step for previously `running` sessions.
 - [ ] Track daemon boot id or heartbeat timestamps.
-- [ ] Mark sessions stale when the daemon cannot prove they are still active.
+- [x] Mark sessions stale when the daemon cannot prove they are still active.
 - [ ] Add retention cleanup for old `tool_calls` and delivered injections.
 - [ ] Add database migration/version metadata.
-- [ ] Add tests around restart reconciliation and stale-state display.
+- [x] Add tests around restart reconciliation and stale-state display.
 
 Verification:
 

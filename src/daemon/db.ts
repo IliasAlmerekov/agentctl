@@ -37,6 +37,13 @@ export function initSchema(db: Database): void {
   `);
 }
 
+export function reconcileRunningAgents(db: Database): void {
+  db.run(
+    "UPDATE agents SET status = 'stale', ended_at = ? WHERE status = 'running'",
+    [Date.now()],
+  );
+}
+
 export function getAgents(db: Database): Agent[] {
   return db
     .query<Agent, []>(

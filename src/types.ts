@@ -28,7 +28,7 @@ export interface Agent {
   session_id: string;
   parent_id: string | null;
   description: string | null;
-  status: "running" | "done" | "killed" | "budget_exceeded";
+  status: "running" | "done" | "killed" | "budget_exceeded" | "stale";
   depth: number;
   tokens_used: number;
   token_budget: number | null;

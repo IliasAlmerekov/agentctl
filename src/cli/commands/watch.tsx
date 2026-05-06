@@ -29,7 +29,13 @@ function AgentRow({ agent }: { agent: Agent }) {
         : "gray";
 
   const icon =
-    agent.status === "running" ? "●" : agent.status === "done" ? "✓" : "✗";
+    agent.status === "running"
+      ? "●"
+      : agent.status === "done"
+        ? "✓"
+        : agent.status === "stale"
+          ? "!"
+          : "✗";
 
   return (
     <Box flexDirection="column" marginLeft={(agent.depth ?? 0) * 3}>
