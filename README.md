@@ -50,6 +50,7 @@ agentctl status          # Show daemon status
 agentctl inject <id> "message"
 agentctl cap <id> --tokens 50000
 agentctl kill <id>
+agentctl uninstall       # Remove hooks, daemon registration, and local files
 ```
 
 ## How it works
