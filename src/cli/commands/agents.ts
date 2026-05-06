@@ -1,12 +1,13 @@
 import { apiAgents } from "../api.ts";
 import type { Agent } from "../../types.ts";
 
-function statusSymbol(status: Agent["status"]): string {
+export function statusSymbol(status: Agent["status"]): string {
   switch (status) {
     case "running": return "●";
     case "done":    return "✓";
     case "killed":  return "✗";
     case "budget_exceeded": return "⚡";
+    case "stale": return "!";
   }
 }
 
