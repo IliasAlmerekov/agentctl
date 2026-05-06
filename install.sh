@@ -5,6 +5,7 @@ AGENTCTL_HOME="$HOME/.agentctl"
 BIN_DIR="$AGENTCTL_HOME/bin"
 HOOKS_DIR="$BIN_DIR/hooks"
 AUTH_TOKEN_FILE="$AGENTCTL_HOME/auth-token"
+CHECKSUMS_FILE="$AGENTCTL_HOME/SHA256SUMS"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 REPO="IliasAlmerekov/agentctl"
 
@@ -37,6 +38,58 @@ generate_auth_token() {
   od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
 }
 
+sha256_file() {
+  local file="$1"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print $1}'
+    return
+  fi
+
+  echo "Neither sha256sum nor shasum is available for checksum verification" >&2
+  exit 1
+}
+
+expected_checksum() {
+  local artifact="$1"
+  awk -v name="$artifact" '$2 == name { print $1; exit }' "$CHECKSUMS_FILE"
+}
+
+verify_checksum() {
+  local artifact="$1"
+  local file="$2"
+  local expected
+  local actual
+
+  expected="$(expected_checksum "$artifact")"
+  if [[ -z "$expected" ]]; then
+    echo "Missing checksum for $artifact in $CHECKSUMS_FILE" >&2
+    exit 1
+  fi
+
+  actual="$(sha256_file "$file")"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Checksum mismatch for $artifact" >&2
+    echo "expected: $expected" >&2
+    echo "actual:   $actual" >&2
+    exit 1
+  fi
+}
+
+verify_downloads() {
+  verify_checksum "agentctl-$PLATFORM" "$BIN_DIR/agentctl"
+  verify_checksum "agentctl-daemon-$PLATFORM" "$BIN_DIR/agentctl-daemon"
+  verify_checksum "pre-tool-use-$PLATFORM" "$HOOKS_DIR/pre-tool-use"
+  verify_checksum "post-tool-use-$PLATFORM" "$HOOKS_DIR/post-tool-use"
+  verify_checksum "subagent-start-$PLATFORM" "$HOOKS_DIR/subagent-start"
+  verify_checksum "subagent-stop-$PLATFORM" "$HOOKS_DIR/subagent-stop"
+}
+
 if [[ ! -f "$AUTH_TOKEN_FILE" ]]; then
   umask 077
   generate_auth_token > "$AUTH_TOKEN_FILE"
@@ -48,12 +101,15 @@ fi
 
 echo "Downloading agentctl $VERSION for $PLATFORM..."
 
+curl -fsSL "$BASE_URL/SHA256SUMS" -o "$CHECKSUMS_FILE"
 curl -fsSL "$BASE_URL/agentctl-$PLATFORM" -o "$BIN_DIR/agentctl"
 curl -fsSL "$BASE_URL/agentctl-daemon-$PLATFORM" -o "$BIN_DIR/agentctl-daemon"
 curl -fsSL "$BASE_URL/pre-tool-use-$PLATFORM" -o "$HOOKS_DIR/pre-tool-use"
 curl -fsSL "$BASE_URL/post-tool-use-$PLATFORM" -o "$HOOKS_DIR/post-tool-use"
 curl -fsSL "$BASE_URL/subagent-start-$PLATFORM" -o "$HOOKS_DIR/subagent-start"
 curl -fsSL "$BASE_URL/subagent-stop-$PLATFORM" -o "$HOOKS_DIR/subagent-stop"
+
+verify_downloads
 
 chmod +x "$BIN_DIR/agentctl" "$BIN_DIR/agentctl-daemon" \
          "$HOOKS_DIR/pre-tool-use" "$HOOKS_DIR/post-tool-use" \

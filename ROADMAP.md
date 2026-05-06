@@ -119,7 +119,7 @@ Tasks:
 - [x] Replace the placeholder repository with the real repository owner/name.
 - [x] Build artifacts for `darwin-arm64`, `darwin-x64`, and `linux-x64`.
 - [x] Publish checksums for all release artifacts.
-- [ ] Verify checksums in `install.sh` before chmod/install.
+- [x] Verify checksums in `install.sh` before chmod/install.
 - [ ] Add `agentctl uninstall` or remove the docs promise.
 - [ ] Add install repair mode for existing hook entries.
 - [ ] Add installer dry-run tests where practical.
