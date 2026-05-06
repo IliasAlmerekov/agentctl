@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import {
+  CURRENT_SCHEMA_VERSION,
   DEFAULT_RETENTION_MS,
   cleanupOldRuntimeData,
+  getSchemaVersion,
   initSchema,
   reconcileRunningAgents,
   recordDaemonHeartbeat,
@@ -14,6 +16,21 @@ function createTestDb(): Database {
   initSchema(db);
   return db;
 }
+
+describe("database schema metadata", () => {
+  test("records the current schema version during schema initialization", () => {
+    const db = createTestDb();
+
+    const row = db
+      .query<{ value: string }, string>(
+        "SELECT value FROM schema_metadata WHERE key = ?",
+      )
+      .get("schema_version");
+
+    expect(row?.value).toBe(String(CURRENT_SCHEMA_VERSION));
+    expect(getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
+  });
+});
 
 describe("daemon database startup reconciliation", () => {
   test("marks previously running sessions stale when the daemon starts again", () => {

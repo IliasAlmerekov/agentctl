@@ -12,7 +12,6 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- Lifecycle persistence still lacks database migration metadata.
 - Installer and README still reference the placeholder repository `you/agentctl`.
 - Documentation promises some behavior that is not implemented yet, such as uninstall.
 
@@ -95,7 +94,7 @@ Tasks:
 - [x] Track daemon boot id or heartbeat timestamps.
 - [x] Mark sessions stale when the daemon cannot prove they are still active.
 - [x] Add retention cleanup for old `tool_calls` and delivered injections.
-- [ ] Add database migration/version metadata.
+- [x] Add database migration/version metadata.
 - [x] Add tests around restart reconciliation and stale-state display.
 
 Verification:
