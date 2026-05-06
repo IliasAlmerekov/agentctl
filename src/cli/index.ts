@@ -4,6 +4,7 @@ import { cmdCap } from "./commands/cap.ts";
 import { cmdKill } from "./commands/kill.ts";
 import { cmdAgents } from "./commands/agents.ts";
 import { cmdWatch } from "./commands/watch.tsx";
+import { cmdUninstall } from "./commands/uninstall.ts";
 import { apiStatus } from "./api.ts";
 
 const program = new Command();
@@ -52,5 +53,10 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command("uninstall")
+  .description("Remove agentctl hooks, daemon registration, and local files")
+  .action(() => cmdUninstall());
 
 program.parse(process.argv);

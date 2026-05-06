@@ -12,7 +12,7 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- Documentation promises some behavior that is not implemented yet, such as uninstall.
+- Installer repair mode, installer dry-run tests, CI release smoke tests, and public-doc sync are still open.
 
 ## Release Bar
 
@@ -120,7 +120,7 @@ Tasks:
 - [x] Build artifacts for `darwin-arm64`, `darwin-x64`, and `linux-x64`.
 - [x] Publish checksums for all release artifacts.
 - [x] Verify checksums in `install.sh` before chmod/install.
-- [ ] Add `agentctl uninstall` or remove the docs promise.
+- [x] Add `agentctl uninstall` or remove the docs promise.
 - [ ] Add install repair mode for existing hook entries.
 - [ ] Add installer dry-run tests where practical.
 - [ ] Add CI workflow for test, typecheck, build, and release artifact smoke tests.
