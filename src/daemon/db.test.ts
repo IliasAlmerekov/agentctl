@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import {
+  DEFAULT_RETENTION_MS,
+  cleanupOldRuntimeData,
   initSchema,
   reconcileRunningAgents,
   recordDaemonHeartbeat,
@@ -74,5 +76,78 @@ describe("daemon runtime metadata", () => {
       started_at: 1_000,
       heartbeat_at: 2_500,
     });
+  });
+});
+
+describe("runtime data retention cleanup", () => {
+  test("deletes old tool calls and delivered injections without deleting pending injections", () => {
+    const db = createTestDb();
+    const now = 10_000;
+    const old = now - DEFAULT_RETENTION_MS - 1;
+    const recent = now - DEFAULT_RETENTION_MS + 1;
+
+    db.run(
+      `INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at)
+       VALUES
+       ('old-call', 'Bash', 'old-hash', ?),
+       ('recent-call', 'Bash', 'recent-hash', ?)`,
+      [old, recent],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at, delivered_at)
+       VALUES
+       ('old-delivered', 'old delivered', 'delivered', ?, ?),
+       ('recent-delivered', 'recent delivered', 'delivered', ?, ?),
+       ('old-pending', 'old pending', 'pending', ?, NULL)`,
+      [old, old, recent, recent, old],
+    );
+
+    cleanupOldRuntimeData(db, now);
+
+    const toolCalls = db
+      .query<{ session_id: string }, []>(
+        "SELECT session_id FROM tool_calls ORDER BY session_id",
+      )
+      .all();
+    const injections = db
+      .query<{ session_id: string; status: string }, []>(
+        "SELECT session_id, status FROM injections ORDER BY session_id",
+      )
+      .all();
+
+    expect(toolCalls).toEqual([{ session_id: "recent-call" }]);
+    expect(injections).toEqual([
+      { session_id: "old-pending", status: "pending" },
+      { session_id: "recent-delivered", status: "delivered" },
+    ]);
+  });
+
+  test("keeps records exactly at the retention cutoff", () => {
+    const db = createTestDb();
+    const now = 10_000;
+    const cutoff = now - DEFAULT_RETENTION_MS;
+
+    db.run(
+      `INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at)
+       VALUES ('cutoff-call', 'Bash', 'cutoff-hash', ?)`,
+      [cutoff],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at, delivered_at)
+       VALUES ('cutoff-delivered', 'cutoff delivered', 'delivered', ?, ?)`,
+      [cutoff, cutoff],
+    );
+
+    cleanupOldRuntimeData(db, now);
+
+    const toolCallCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
+    const injectionCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM injections")
+      .get();
+
+    expect(toolCallCount?.count).toBe(1);
+    expect(injectionCount?.count).toBe(1);
   });
 });
