@@ -1,5 +1,12 @@
 import type { Database } from "bun:sqlite";
+import { randomUUID } from "crypto";
 import type { Agent } from "../types.ts";
+
+export interface DaemonBoot {
+  boot_id: string;
+  started_at: number;
+  heartbeat_at: number;
+}
 
 export function initSchema(db: Database): void {
   db.exec(`
@@ -34,6 +41,12 @@ export function initSchema(db: Database): void {
       created_at     INTEGER,
       delivered_at   INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS daemon_boots (
+      boot_id       TEXT PRIMARY KEY,
+      started_at    INTEGER NOT NULL,
+      heartbeat_at  INTEGER NOT NULL
+    );
   `);
 }
 
@@ -42,6 +55,35 @@ export function reconcileRunningAgents(db: Database): void {
     "UPDATE agents SET status = 'stale', ended_at = ? WHERE status = 'running'",
     [Date.now()],
   );
+}
+
+export function startDaemonRuntime(
+  db: Database,
+  bootId: string = randomUUID(),
+  now = Date.now(),
+): DaemonBoot {
+  const boot = {
+    boot_id: bootId,
+    started_at: now,
+    heartbeat_at: now,
+  };
+  db.run(
+    `INSERT INTO daemon_boots (boot_id, started_at, heartbeat_at)
+     VALUES (?, ?, ?)`,
+    [boot.boot_id, boot.started_at, boot.heartbeat_at],
+  );
+  return boot;
+}
+
+export function recordDaemonHeartbeat(
+  db: Database,
+  bootId: string,
+  now = Date.now(),
+): void {
+  db.run("UPDATE daemon_boots SET heartbeat_at = ? WHERE boot_id = ?", [
+    now,
+    bootId,
+  ]);
 }
 
 export function getAgents(db: Database): Agent[] {

@@ -12,7 +12,7 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- Lifecycle persistence still lacks daemon boot/heartbeat metadata, retention cleanup, and database migration metadata.
+- Lifecycle persistence still lacks retention cleanup and database migration metadata.
 - Installer and README still reference the placeholder repository `you/agentctl`.
 - Documentation promises some behavior that is not implemented yet, such as uninstall.
 
@@ -92,7 +92,7 @@ Goal: make daemon restarts, stale sessions, and old SQLite state predictable.
 Tasks:
 
 - [x] Add a startup reconciliation step for previously `running` sessions.
-- [ ] Track daemon boot id or heartbeat timestamps.
+- [x] Track daemon boot id or heartbeat timestamps.
 - [x] Mark sessions stale when the daemon cannot prove they are still active.
 - [ ] Add retention cleanup for old `tool_calls` and delivered injections.
 - [ ] Add database migration/version metadata.
