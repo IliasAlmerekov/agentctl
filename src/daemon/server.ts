@@ -1,5 +1,11 @@
 import { Database } from "bun:sqlite";
-import { initSchema, getAgents, reconcileRunningAgents } from "./db.ts";
+import {
+  initSchema,
+  getAgents,
+  reconcileRunningAgents,
+  recordDaemonHeartbeat,
+  startDaemonRuntime,
+} from "./db.ts";
 import { createDaemonFetch } from "./http.ts";
 import { mkdirSync } from "fs";
 import type { WSData, AgentEvent } from "../types.ts";
@@ -13,6 +19,8 @@ export const db = new Database(`${dbDir}/agents.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL");
 initSchema(db);
 reconcileRunningAgents(db);
+const daemonBoot = startDaemonRuntime(db);
+setInterval(() => recordDaemonHeartbeat(db, daemonBoot.boot_id), 30_000);
 const authToken = readAuthToken();
 
 const wsClients = new Set<import("bun").ServerWebSocket<WSData>>();
