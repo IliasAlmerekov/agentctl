@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import {
+  CHECKSUMS_FILE_NAME,
   RELEASE_BINARIES,
   RELEASE_PLATFORMS,
   getReleaseArtifacts,
+  writeChecksumManifest,
+  type ReleaseArtifact,
 } from "./build-artifacts.ts";
 
 describe("release artifact manifest", () => {
@@ -40,5 +46,35 @@ describe("release artifact manifest", () => {
       "bun-darwin-x64",
       "bun-linux-x64",
     ]);
+  });
+});
+
+describe("release checksum manifest", () => {
+  test("writes SHA-256 checksums for release artifact file names", () => {
+    const dir = mkdtempSync(join(tmpdir(), "agentctl-release-"));
+    const first = join(dir, "agentctl-linux-x64");
+    const second = join(dir, "agentctl-daemon-linux-x64");
+    const checksumFile = join(dir, CHECKSUMS_FILE_NAME);
+    writeFileSync(first, "first artifact");
+    writeFileSync(second, "second artifact");
+
+    const artifacts = [
+      { outfile: first },
+      { outfile: second },
+    ] as ReleaseArtifact[];
+
+    const checksums = writeChecksumManifest(artifacts, checksumFile);
+
+    expect(checksums.map((checksum) => checksum.fileName)).toEqual([
+      "agentctl-linux-x64",
+      "agentctl-daemon-linux-x64",
+    ]);
+    expect(readFileSync(checksumFile, "utf8")).toBe(
+      [
+        "69f6245a92f0c902e45cfd6e99297cad3e536598237b6ef3d04fbb59c8a3b095  agentctl-linux-x64",
+        "60c48ddce35530a43716c40331da2e737fca5f9b2468c01396726ab7d4f351b2  agentctl-daemon-linux-x64",
+        "",
+      ].join("\n"),
+    );
   });
 });

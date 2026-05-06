@@ -1,4 +1,8 @@
-import { mkdirSync } from "fs";
+import { createHash } from "crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { basename } from "path";
+
+export const CHECKSUMS_FILE_NAME = "SHA256SUMS";
 
 export type ReleasePlatform = {
   name: "darwin-arm64" | "darwin-x64" | "linux-x64";
@@ -16,6 +20,13 @@ export type ReleaseArtifact = {
   platform: ReleasePlatform;
   outfile: string;
   args: string[];
+};
+
+export type ReleaseChecksum = {
+  outfile: string;
+  fileName: string;
+  sha256: string;
+  line: string;
 };
 
 export const RELEASE_PLATFORMS: ReleasePlatform[] = [
@@ -60,8 +71,9 @@ export function getReleaseArtifacts(): ReleaseArtifact[] {
 
 export function buildReleaseArtifacts(): void {
   mkdirSync("dist", { recursive: true });
+  const artifacts = getReleaseArtifacts();
 
-  for (const artifact of getReleaseArtifacts()) {
+  for (const artifact of artifacts) {
     const result = Bun.spawnSync({
       cmd: [process.execPath, ...artifact.args],
       stdout: "inherit",
@@ -73,6 +85,29 @@ export function buildReleaseArtifacts(): void {
       throw new Error(`Failed to build ${label} (exit ${result.exitCode})`);
     }
   }
+
+  writeChecksumManifest(artifacts);
+}
+
+export function writeChecksumManifest(
+  artifacts: ReleaseArtifact[] = getReleaseArtifacts(),
+  outfile = `dist/${CHECKSUMS_FILE_NAME}`,
+): ReleaseChecksum[] {
+  const checksums = artifacts.map((artifact) => {
+    const fileName = basename(artifact.outfile);
+    const sha256 = createHash("sha256")
+      .update(readFileSync(artifact.outfile))
+      .digest("hex");
+    return {
+      outfile: artifact.outfile,
+      fileName,
+      sha256,
+      line: `${sha256}  ${fileName}`,
+    };
+  });
+
+  writeFileSync(outfile, `${checksums.map((item) => item.line).join("\n")}\n`);
+  return checksums;
 }
 
 if (import.meta.main) {
