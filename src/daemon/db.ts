@@ -2,6 +2,8 @@ import type { Database } from "bun:sqlite";
 import { randomUUID } from "crypto";
 import type { Agent } from "../types.ts";
 
+export const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
+
 export interface DaemonBoot {
   boot_id: string;
   started_at: number;
@@ -84,6 +86,22 @@ export function recordDaemonHeartbeat(
     now,
     bootId,
   ]);
+}
+
+export function cleanupOldRuntimeData(
+  db: Database,
+  now = Date.now(),
+  retentionMs = DEFAULT_RETENTION_MS,
+): void {
+  const cutoff = now - retentionMs;
+  db.run("DELETE FROM tool_calls WHERE called_at < ?", [cutoff]);
+  db.run(
+    `DELETE FROM injections
+     WHERE status = 'delivered'
+       AND delivered_at IS NOT NULL
+       AND delivered_at < ?`,
+    [cutoff],
+  );
 }
 
 export function getAgents(db: Database): Agent[] {

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import {
+  cleanupOldRuntimeData,
   initSchema,
   getAgents,
   reconcileRunningAgents,
@@ -19,6 +20,7 @@ export const db = new Database(`${dbDir}/agents.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL");
 initSchema(db);
 reconcileRunningAgents(db);
+cleanupOldRuntimeData(db);
 const daemonBoot = startDaemonRuntime(db);
 setInterval(() => recordDaemonHeartbeat(db, daemonBoot.boot_id), 30_000);
 const authToken = readAuthToken();
