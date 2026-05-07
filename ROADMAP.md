@@ -146,7 +146,7 @@ Goal: keep Claude Code hook behavior safe, fast, and explicit.
 
 Tasks:
 
-- [ ] Validate hook stdin JSON before sending it to the daemon.
+- [x] Validate hook stdin JSON before sending it to the daemon.
 - [ ] Keep hook failure mode fail-open for daemon/network failures.
 - [ ] Decide whether malformed hook input should fail-open or emit a safe diagnostic.
 - [ ] Measure compiled hook latency under normal and daemon-unavailable paths.

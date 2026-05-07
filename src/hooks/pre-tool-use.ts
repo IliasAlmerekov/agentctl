@@ -3,8 +3,16 @@
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
 import { sendHookRequest } from "./daemon-client.ts";
+import { parseHookInput, validatePreToolUseInput } from "./hook-input.ts";
 
-const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
+const input: PreToolUseInput | null = parseHookInput(
+  await Bun.stdin.text(),
+  validatePreToolUseInput,
+);
+
+if (!input) {
+  process.exit(0);
+}
 
 const decision = await sendHookRequest<DaemonDecision>("/hook/pre", input);
 
