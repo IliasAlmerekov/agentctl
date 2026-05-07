@@ -26,6 +26,23 @@ esac
 # ─── 2. Download binaries ─────────────────────────────────────────────────────
 VERSION="${AGENTCTL_VERSION:-latest}"
 BASE_URL="https://github.com/$REPO/releases/${VERSION}/download"
+DRY_RUN="${AGENTCTL_INSTALL_DRY_RUN:-0}"
+
+is_dry_run() {
+  [[ "$DRY_RUN" == "1" || "$DRY_RUN" == "true" || "$DRY_RUN" == "yes" ]]
+}
+
+if is_dry_run; then
+  echo "Dry run: would install agentctl $VERSION for $PLATFORM"
+  echo "Dry run: would create $HOOKS_DIR"
+  echo "Dry run: would generate or reuse $AUTH_TOKEN_FILE"
+  echo "Dry run: would download release artifacts from $BASE_URL"
+  echo "Dry run: would verify checksums from $CHECKSUMS_FILE"
+  echo "Dry run: would mark binaries executable under $BIN_DIR"
+  echo "Dry run: would patch $CLAUDE_SETTINGS"
+  echo "Dry run: would register daemon for $OS"
+  exit 0
+fi
 
 mkdir -p "$HOOKS_DIR"
 
