@@ -97,7 +97,7 @@ A short security note is available in `docs/security.md`.
 Claude Code (agent + sub-agents)
          │ tool calls
          ▼
-   Hook scripts (.ts)          ← < 150ms per call
+   Hook scripts (.ts)          ← <250ms p95 per call
          │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)
@@ -123,7 +123,7 @@ bun run build           # compile all binaries to dist/
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| Runtime | Bun | Hook startup ~8ms vs Node ~180ms |
+| Runtime | Bun | Compiled single-file binaries; hook latency is gated by `measure:hooks` |
 | Database | bun:sqlite | Native, WAL mode, no bindings |
 | TUI | Ink (React for terminal) | Declarative, composable |
 | CLI parser | commander | Lightweight, well-typed |

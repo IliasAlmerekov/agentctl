@@ -57,4 +57,21 @@ describe("primary docs current behavior", () => {
       "`inject`, `cap`, or `kill` prints `not found`",
     );
   });
+
+  test("primary docs describe the measured hook latency contract", () => {
+    const readme = read("README.md");
+    const agentctl = read("AGENTCTL.md");
+    const hookContract = read("docs/hook-contract.md");
+
+    for (const doc of [readme, agentctl, hookContract]) {
+      expect(doc).toContain("<250ms");
+    }
+
+    expect(readme).not.toContain("< 150ms");
+    expect(agentctl).not.toContain("< 150ms");
+    expect(agentctl).not.toContain("Must exit in < 150ms");
+    expect(hookContract).toContain("Fresh local Linux evidence");
+    expect(hookContract).toContain("normal p95");
+    expect(hookContract).toContain("daemon-unavailable p95");
+  });
 });

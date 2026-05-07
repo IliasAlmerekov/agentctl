@@ -109,7 +109,7 @@ Summarise your work so far and stop.
 Claude Code (agent + sub-agents)
          │ tool calls
          ▼
-   Hook scripts (.ts)          ← executed per tool call, < 150ms
+   Hook scripts (.ts)          ← executed per tool call, <250ms p95
          │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)       ← always-running local process
@@ -170,7 +170,7 @@ CREATE TABLE injections (
 
 | Component    | Choice                       | Reason                                                                 |
 | ------------ | ---------------------------- | ---------------------------------------------------------------------- |
-| Runtime      | **Bun**                      | Hook startup ~8ms vs Node ~180ms. Claude Code has a hard hook timeout. |
+| Runtime      | **Bun**                      | Compiled single-file binaries; hook latency is gated by `measure:hooks`. |
 | HTTP server  | `Bun.serve`                  | Built-in, zero deps, WebSocket included                                |
 | Database     | `bun:sqlite`                 | Native, no bindings, WAL mode for concurrent readers                   |
 | TUI          | **Ink** (React for terminal) | Declarative, composable, same mental model as React                    |
@@ -218,12 +218,12 @@ agentctl/
 
 ```typescript
 // Executed by Claude Code on every PreToolUse event.
-// Must exit in < 150ms. Logic lives in the daemon.
+// Target: <250ms p95 end-to-end. Logic lives in the daemon.
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
 
 const DAEMON = "http://127.0.0.1:47823";
-const TIMEOUT_MS = 150;
+const TIMEOUT_MS = 130;
 
 const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
 

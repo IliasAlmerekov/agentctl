@@ -119,13 +119,13 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/daemon/http.test.ts src/cli/com
 
 ### 6. Reconcile hook latency claim with measured behavior
 
-Current risk: docs say hook scripts are `< 150ms`, but measured normal p95 is currently around 180-196ms on local Linux.
+Resolved: docs and `measure:hooks` now use a measured `<250ms` p95 launch contract, with the daemon-unavailable fail-open path budgeted separately at `<75ms` p95.
 
-- [ ] Decide whether the launch contract is `<150ms`, `<250ms`, or best-effort fail-open.
-- [ ] If keeping `<150ms`, optimize compiled hook startup or daemon request path until p95 passes.
-- [ ] If changing the contract, update README, AGENTCTL docs, comments, and latency tests.
-- [ ] Keep daemon-unavailable path fast and fail-open.
-- [ ] Store fresh latency evidence in docs or release notes.
+- [x] Decide whether the launch contract is `<150ms`, `<250ms`, or best-effort fail-open: selected `<250ms` p95 for normal hooks and `<75ms` p95 for the daemon-unavailable fail-open path.
+- [x] If keeping `<150ms`, optimize compiled hook startup or daemon request path until p95 passes: not selected for launch because current measured normal p95 is around 190ms.
+- [x] If changing the contract, update README, AGENTCTL docs, comments, and latency tests.
+- [x] Keep daemon-unavailable path fast and fail-open.
+- [x] Store fresh latency evidence in docs or release notes.
 
 Acceptance:
 
@@ -265,7 +265,7 @@ AGENTCTL_VERSION=v0.1.0-beta.1 rtk proxy bash -lc 'curl -fsSL https://raw.github
 - [ ] Installer does not require Bun for installed-user flow.
 - [ ] Checksums are verified before binaries are installed.
 - [ ] Unknown-agent control commands behave honestly.
-- [ ] Hook latency claim matches measured behavior.
+- [x] Hook latency claim matches measured behavior.
 - [ ] Download size is acceptable for a CLI tool.
 - [ ] Linux and macOS release smoke tests pass.
 - [ ] Public docs describe only implemented and verified behavior.
