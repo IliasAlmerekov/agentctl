@@ -41,8 +41,13 @@ Current risk: local build artifacts exist, but public install depends on GitHub 
   - `SHA256SUMS`
 - [x] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
 - [x] Allow private-repo release smoke to verify downloaded release assets before the public raw URL exists.
-- [ ] Create the first beta tag, for example `v0.1.0-beta.1`.
+- [x] Create the first beta tag, for example `v0.1.0-beta.1`.
 - [ ] Verify `AGENTCTL_VERSION=v0.1.0-beta.1` install works.
+
+Beta tag evidence:
+
+- `v0.1.0-beta.1` was pushed on 2026-05-07 and points at launch branch commit `117009b`.
+- Because the repository is still private, the release smoke workflow uses downloaded release assets for private verification and keeps public raw URL smoke for public repositories.
 
 Acceptance:
 
