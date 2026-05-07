@@ -12,7 +12,7 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- Public-doc sync is still open.
+- No beta-gate gaps are currently open.
 
 ## Release Bar
 
@@ -202,9 +202,9 @@ Before tagging a beta release:
 - [x] Installer uses the real repository and verifies release artifacts.
 - [x] CI builds all supported binaries.
 - [x] README and AGENTCTL docs match actual behavior.
-- [ ] A fresh install smoke test has been run on at least one supported macOS target and one supported Linux target.
-  - Linux x64: passed on 2026-05-07 with `rtk env PATH="$HOME/.bun/bin:$PATH" bun run smoke:install`.
-  - macOS: pending run on a supported macOS target via `.github/workflows/install-smoke.yml` or a local macOS machine.
+- [x] A fresh install smoke test has been run on at least one supported macOS target and one supported Linux target.
+  - Linux x64: passed on 2026-05-07 with `rtk env PATH="$HOME/.bun/bin:$PATH" bun run smoke:install` and GitHub Actions run `25496672375`.
+  - macOS arm64: passed on 2026-05-07 with GitHub Actions run `25496672375` (`install-smoke (macos-latest)`).
 
 ## Later, Not For Production Gate
 
