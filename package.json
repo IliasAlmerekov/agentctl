@@ -10,6 +10,7 @@
     "build:local": "bun run build:hooks && bun run build:daemon && bun run build:cli",
     "build:release": "bun run src/release/build-artifacts.ts",
     "build": "bun run build:release",
+    "measure:hooks": "bun run scripts/measure-hook-latency.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
