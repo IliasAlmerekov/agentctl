@@ -48,15 +48,15 @@ describe("release artifact manifest", () => {
     ]);
   });
 
-  test("does not require Ink's optional devtools peer during CLI release builds", () => {
+  test("bundles Ink's optional devtools peer for CLI release builds", () => {
     const cliArtifacts = getReleaseArtifacts().filter((artifact) => {
       return artifact.binary.name === "agentctl";
     });
 
     expect(cliArtifacts).toHaveLength(RELEASE_PLATFORMS.length);
     for (const artifact of cliArtifacts) {
-      expect(artifact.args).toContain("--external");
-      expect(artifact.args).toContain("react-devtools-core");
+      expect(artifact.args).not.toContain("--external");
+      expect(artifact.args).not.toContain("react-devtools-core");
     }
   });
 });
