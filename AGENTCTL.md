@@ -733,6 +733,8 @@ After install, no configuration needed. Start Claude Code — agentctl is active
 
 ## CLI reference
 
+Implemented commands:
+
 ```bash
 # List all agents (current and recent sessions)
 agentctl agents
