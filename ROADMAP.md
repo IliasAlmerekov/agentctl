@@ -176,7 +176,7 @@ Tasks:
 - [x] Sync README install instructions with the real release pipeline.
 - [x] Remove or clearly label unimplemented commands.
 - [x] Document supported platforms and unsupported platforms.
-- [ ] Add troubleshooting for daemon not running, Bun/PATH issues, stale DB state, and hook config conflicts.
+- [x] Add troubleshooting for daemon not running, Bun/PATH issues, stale DB state, and hook config conflicts.
 - [ ] Add a short security note explaining local daemon access and limits.
 - [ ] Keep MVP out-of-scope items explicit: Windows, remote daemon, Web UI, per-tool-type budgets, external observability.
 
