@@ -178,7 +178,7 @@ Tasks:
 - [x] Document supported platforms and unsupported platforms.
 - [x] Add troubleshooting for daemon not running, Bun/PATH issues, stale DB state, and hook config conflicts.
 - [x] Add a short security note explaining local daemon access and limits.
-- [ ] Keep MVP out-of-scope items explicit: Windows, remote daemon, Web UI, per-tool-type budgets, external observability.
+- [x] Keep MVP out-of-scope items explicit: Windows, remote daemon, Web UI, per-tool-type budgets, external observability.
 
 Verification:
 

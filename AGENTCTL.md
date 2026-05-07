@@ -794,6 +794,8 @@ agentctl uninstall
 - Per-tool-type budget caps (only total token budget)
 - Integration with external observability (OTel, Grafana)
 
+The beta out-of-scope list is kept in `docs/out-of-scope.md`.
+
 ---
 
 ## Risks
