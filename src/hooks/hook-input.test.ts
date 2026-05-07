@@ -108,10 +108,23 @@ describe("hook entrypoint malformed input handling", () => {
     "subagent-start.ts",
     "subagent-stop.ts",
   ]) {
-    test(`${script} exits open on invalid JSON`, () => {
+    test(`${script} fails open silently on invalid JSON`, () => {
       const result = Bun.spawnSync({
         cmd: [process.execPath, join("src", "hooks", script)],
         stdin: new TextEncoder().encode("{bad json"),
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(new TextDecoder().decode(result.stdout)).toBe("");
+      expect(new TextDecoder().decode(result.stderr)).toBe("");
+    });
+
+    test(`${script} fails open silently on malformed JSON shape`, () => {
+      const result = Bun.spawnSync({
+        cmd: [process.execPath, join("src", "hooks", script)],
+        stdin: new TextEncoder().encode(JSON.stringify({ session_id: "" })),
         stdout: "pipe",
         stderr: "pipe",
       });

@@ -148,7 +148,7 @@ Tasks:
 
 - [x] Validate hook stdin JSON before sending it to the daemon.
 - [x] Keep hook failure mode fail-open for daemon/network failures.
-- [ ] Decide whether malformed hook input should fail-open or emit a safe diagnostic.
+- [x] Decide whether malformed hook input should fail-open or emit a safe diagnostic. Decision: fail open silently; hook diagnostics must not risk polluting Claude Code output or blocking the agent.
 - [ ] Measure compiled hook latency under normal and daemon-unavailable paths.
 - [ ] Add manual hook fixtures for `PreToolUse`, `PostToolUse`, `SubagentStart`, and `SubagentStop`.
 - [ ] Document the `exit(2)` blocking contract and its limitations.
