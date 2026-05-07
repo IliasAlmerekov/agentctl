@@ -103,13 +103,13 @@ AGENTCTL_VERSION=v0.1.0-beta.1 rtk proxy bash -lc 'curl -fsSL https://raw.github
 
 Current risk: `kill` reports `not_found`, but `inject` and `cap` can look successful for a mistyped or unknown session.
 
-- [ ] Decide the product contract for unknown sessions:
+- [x] Decide the product contract for unknown sessions:
   - Option A: return `not_found` and exit non-zero.
   - Option B: explicitly support queued future injections and document that behavior.
-- [ ] Apply the same honesty rule to `inject` and `cap`.
-- [ ] Add daemon HTTP tests for unknown-session `inject` and `cap`.
-- [ ] Add CLI rendering tests for the selected behavior.
-- [ ] Update README and troubleshooting if behavior changes.
+- [x] Apply the same honesty rule to `inject` and `cap`.
+- [x] Add daemon HTTP tests for unknown-session `inject` and `cap`.
+- [x] Add CLI rendering tests for the selected behavior.
+- [x] Update README and troubleshooting if behavior changes.
 
 Acceptance:
 

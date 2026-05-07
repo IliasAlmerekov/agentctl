@@ -27,11 +27,17 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export async function apiInject(sessionId: string, message: string) {
-  return post<{ ok: boolean }>("/inject", { session_id: sessionId, message });
+  return post<import("../types.ts").InjectResult>("/inject", {
+    session_id: sessionId,
+    message,
+  });
 }
 
 export async function apiCap(sessionId: string, tokens: number) {
-  return post<{ ok: boolean }>("/cap", { session_id: sessionId, tokens });
+  return post<import("../types.ts").CapResult>("/cap", {
+    session_id: sessionId,
+    tokens,
+  });
 }
 
 export async function apiKill(sessionId: string) {

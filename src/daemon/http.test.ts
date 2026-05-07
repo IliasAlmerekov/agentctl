@@ -120,8 +120,17 @@ describe("daemon HTTP endpoints", () => {
       )
       .get("agent-b");
 
-    expect(await injectResponse.json()).toEqual({ ok: true });
-    expect(await capResponse.json()).toEqual({ ok: true });
+    expect(await injectResponse.json()).toEqual({
+      ok: true,
+      session_id: "agent-a",
+      status: "queued",
+    });
+    expect(await capResponse.json()).toEqual({
+      ok: true,
+      session_id: "agent-a",
+      status: "set",
+      tokens: 50,
+    });
     expect(await killResponse.json()).toEqual({
       ok: true,
       session_id: "agent-b",
@@ -167,13 +176,21 @@ describe("daemon HTTP endpoints", () => {
             },
             token,
           ),
-        expectedBody: { ok: true },
+        expectedBody: {
+          ok: true,
+          session_id: "agent-a",
+          status: "not_found",
+        },
       },
       {
         name: "cap",
         request: (token?: string) =>
           jsonRequest("/cap", { session_id: "agent-a", tokens: 50 }, token),
-        expectedBody: { ok: true },
+        expectedBody: {
+          ok: true,
+          session_id: "agent-a",
+          status: "not_found",
+        },
       },
       {
         name: "kill",
@@ -207,6 +224,60 @@ describe("daemon HTTP endpoints", () => {
       expect(validAuth.status, endpoint.name).toBe(200);
       expect(await validAuth.json()).toEqual(endpoint.expectedBody);
     }
+  });
+
+  test("returns not_found for unknown-session inject and cap without side effects", async () => {
+    const db = createTestDb();
+    const events: AgentEvent[] = [];
+    const fetchDaemon = createDaemonFetch(db, (event) => events.push(event), {
+      authToken: TEST_TOKEN,
+    });
+
+    const injectResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest(
+          "/inject",
+          {
+            session_id: "missing-agent",
+            message: "use sqlite",
+          },
+          TEST_TOKEN,
+        ),
+      ),
+    );
+    const capResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest(
+          "/cap",
+          { session_id: "missing-agent", tokens: 50 },
+          TEST_TOKEN,
+        ),
+      ),
+    );
+    const injectionCount = db
+      .query<{ count: number }, []>(
+        "SELECT COUNT(*) as count FROM injections WHERE session_id = 'missing-agent'",
+      )
+      .get();
+    const updatedAgent = db
+      .query<{ token_budget: number | null }, string>(
+        "SELECT token_budget FROM agents WHERE session_id = ?",
+      )
+      .get("missing-agent");
+
+    expect(await injectResponse.json()).toEqual({
+      ok: true,
+      session_id: "missing-agent",
+      status: "not_found",
+    });
+    expect(await capResponse.json()).toEqual({
+      ok: true,
+      session_id: "missing-agent",
+      status: "not_found",
+    });
+    expect(injectionCount?.count).toBe(0);
+    expect(updatedAgent).toBeNull();
+    expect(events).toEqual([]);
   });
 
   test("covers missing, invalid, and valid auth for websocket access", async () => {

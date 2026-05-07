@@ -47,4 +47,14 @@ describe("primary docs current behavior", () => {
       expect(doc).not.toContain(staleText);
     }
   });
+
+  test("primary docs describe honest unknown-session control behavior", () => {
+    const readme = read("README.md");
+
+    expect(readme).toContain("Unknown session IDs are reported as `not_found`");
+    expect(readme).toContain("`inject`, `cap`, and `kill`");
+    expect(read("docs/troubleshooting.md")).toContain(
+      "`inject`, `cap`, or `kill` prints `not found`",
+    );
+  });
 });

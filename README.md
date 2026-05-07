@@ -67,6 +67,10 @@ agentctl kill <id>
 agentctl uninstall       # Remove hooks, daemon registration, and local files
 ```
 
+Unknown session IDs are reported as `not_found`: `inject`, `cap`, and `kill`
+print an error and exit non-zero instead of pretending that a mistyped agent ID
+was controlled.
+
 ## How it works
 
 Claude Code runs a hook script on every tool call. The hook calls the local daemon (`127.0.0.1:47823`) which decides whether to block, inject a message, or allow. The daemon tracks:
