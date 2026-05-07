@@ -50,6 +50,7 @@ For the detected platform, the release must include `SHA256SUMS` plus these arti
 It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.agentctl/bin/hooks/`, generates or reuses `~/.agentctl/auth-token`, patches `~/.claude/settings.json`, then registers the daemon with launchd, `systemd --user`, or pm2 when available. After install, restart your shell or reload your rc file, then run `agentctl status`.
 
 Supported and unsupported platforms are listed in `docs/platforms.md`.
+Troubleshooting for daemon, PATH, stale DB, and hook config problems is in `docs/troubleshooting.md`.
 
 ## Usage
 
