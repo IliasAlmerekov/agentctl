@@ -42,16 +42,27 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 By default, the installer downloads the `latest` assets from `https://github.com/IliasAlmerekov/agentctl/releases`. Set `AGENTCTL_VERSION` to pin a release tag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0 bash
+curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0-beta.1 bash
 ```
 
-For the detected platform, the release must include `SHA256SUMS` plus these artifacts: `agentctl-$platform`, `agentctl-daemon-$platform`, `pre-tool-use-$platform`, `post-tool-use-$platform`, `subagent-start-$platform`, and `subagent-stop-$platform`. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable.
+For the detected platform, the release must include `SHA256SUMS` plus `agentctl-$platform.tar.gz`. That archive contains the CLI, daemon, and hook binaries. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries.
 
 It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.agentctl/bin/hooks/`, generates or reuses `~/.agentctl/auth-token`, patches `~/.claude/settings.json`, then registers the daemon with launchd, `systemd --user`, or pm2 when available. After install, restart your shell or reload your rc file, then run `agentctl status`.
 
 Supported and unsupported platforms are listed in `docs/platforms.md`.
 Troubleshooting for daemon, PATH, stale DB, and hook config problems is in `docs/troubleshooting.md`.
 MVP out-of-scope items are listed in `docs/out-of-scope.md`.
+Launch release notes are in `docs/release-notes.md`, and changes are tracked in `CHANGELOG.md`.
+
+## Beta status
+
+agentctl is preparing its first public beta. The public install path is the
+`main` branch installer plus GitHub Release archives, and the release smoke
+workflow verifies that path before announcement.
+
+The supported beta release platforms are macOS Apple Silicon, macOS Intel, and
+Linux x64. Windows and Linux arm64 are not supported. See `docs/platforms.md`
+for the full platform matrix and unsupported cases.
 
 ## Usage
 
@@ -66,6 +77,10 @@ agentctl cap <id> --tokens 50000
 agentctl kill <id>
 agentctl uninstall       # Remove hooks, daemon registration, and local files
 ```
+
+Unknown session IDs are reported as `not_found`: `inject`, `cap`, and `kill`
+print an error and exit non-zero instead of pretending that a mistyped agent ID
+was controlled.
 
 ## How it works
 
@@ -93,7 +108,7 @@ A short security note is available in `docs/security.md`.
 Claude Code (agent + sub-agents)
          │ tool calls
          ▼
-   Hook scripts (.ts)          ← < 150ms per call
+   Hook scripts (.ts)          ← <250ms p95 per call
          │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)
@@ -119,8 +134,8 @@ bun run build           # compile all binaries to dist/
 
 | Component | Choice | Reason |
 |-----------|--------|--------|
-| Runtime | Bun | Hook startup ~8ms vs Node ~180ms |
+| Runtime | Bun | Compiled single-file binaries; hook latency is gated by `measure:hooks` |
 | Database | bun:sqlite | Native, WAL mode, no bindings |
 | TUI | Ink (React for terminal) | Declarative, composable |
 | CLI parser | commander | Lightweight, well-typed |
-| Distribution | bun build --compile | Single binary, no runtime required |
+| Distribution | bun build --compile + tar.gz | Compiled binaries in one archive per platform, no runtime required |

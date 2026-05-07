@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 import {
+  HOOK_LATENCY_BUDGETS_MS,
   HOOK_LATENCY_SCENARIOS,
   HOOK_LATENCY_SPECS,
+  assertLatencyBudgets,
   percentile,
 } from "../../scripts/measure-hook-latency.ts";
 
@@ -22,6 +24,10 @@ describe("compiled hook latency measurement script", () => {
       "normal",
       "daemon-unavailable",
     ]);
+    expect(HOOK_LATENCY_BUDGETS_MS).toEqual({
+      normal: 250,
+      "daemon-unavailable": 75,
+    });
     expect(HOOK_LATENCY_SPECS.map((hook) => hook.name)).toEqual([
       "pre-tool-use",
       "post-tool-use",
@@ -39,5 +45,17 @@ describe("compiled hook latency measurement script", () => {
   test("computes percentile latency with nearest-rank semantics", () => {
     expect(percentile([4, 1, 2, 3, 100], 95)).toBe(100);
     expect(percentile([4, 1, 2, 3, 100], 50)).toBe(3);
+  });
+
+  test("fails when measured p95 exceeds the launch latency budget", () => {
+    expect(() =>
+      assertLatencyBudgets([
+        {
+          hook: "pre-tool-use",
+          scenario: "normal",
+          summary: { min_ms: 1, avg_ms: 2, p95_ms: 251, max_ms: 251 },
+        },
+      ]),
+    ).toThrow("pre-tool-use normal p95 251ms exceeds budget 250ms");
   });
 });

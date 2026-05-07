@@ -10,9 +10,11 @@
     "build:local": "bun run build:hooks && bun run build:daemon && bun run build:cli",
     "build:release": "bun run src/release/build-artifacts.ts",
     "build": "bun run build:release",
+    "check:public-doc-drift": "bun run scripts/check-public-doc-drift.ts",
     "check:public-install-url": "bun run scripts/check-public-install-url.ts",
     "measure:hooks": "bun run scripts/measure-hook-latency.ts",
     "smoke:install": "bash scripts/smoke-install.sh",
+    "smoke:install:public": "AGENTCTL_SMOKE_INSTALL_SOURCE=public bash scripts/smoke-install.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

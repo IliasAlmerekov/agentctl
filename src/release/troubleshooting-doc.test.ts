@@ -12,6 +12,9 @@ describe("troubleshooting documentation", () => {
       "`agentctl status`",
       "`~/.agentctl/daemon.log`",
       "`~/.agentctl/daemon.error.log`",
+      "Port conflict",
+      "127.0.0.1:47823 is already in use",
+      "agentctl daemon cannot start",
       "launchd",
       "`systemd --user`",
       "pm2",
@@ -23,6 +26,10 @@ describe("troubleshooting documentation", () => {
       "`~/.agentctl/agents.db`",
       "hook config conflicts",
       "`~/.claude/settings.json`",
+      "Upgrade / reinstall",
+      "Re-running the installer is the supported upgrade path",
+      "preserves `~/.agentctl/auth-token`",
+      "does not duplicate hook entries",
       "`agentctl uninstall`",
     ]) {
       expect(doc).toContain(requiredText);

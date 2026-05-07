@@ -6,7 +6,7 @@ import type {
   KillRequest,
   WSData,
 } from "../types.ts";
-import { setBudget } from "./budget.ts";
+import { getAgent, setBudget } from "./budget.ts";
 import { getAgents } from "./db.ts";
 import { createInjection } from "./injections.ts";
 import { killAgent } from "./kill.ts";
@@ -89,20 +89,28 @@ export function createDaemonFetch(
 
     if (pathname === "/inject" && req.method === "POST") {
       const { session_id, message } = (await req.json()) as InjectRequest;
+      if (!getAgent(db, session_id)) {
+        return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+
       createInjection(db, session_id, message);
       broadcast({
         type: "injection_delivered",
         session_id,
         message,
       });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, session_id, status: "queued" });
     }
 
     if (pathname === "/cap" && req.method === "POST") {
       const { session_id, tokens } = (await req.json()) as CapRequest;
+      if (!getAgent(db, session_id)) {
+        return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+
       setBudget(db, session_id, tokens);
       broadcast({ type: "agents_update", agents: getAgents(db) });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, session_id, status: "set", tokens });
     }
 
     if (pathname === "/kill" && req.method === "POST") {

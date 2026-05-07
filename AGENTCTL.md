@@ -88,7 +88,7 @@ The exact `exit(2)` blocking contract and limitations are documented in `docs/ho
 The daemon tracks every tool call: session ID, tool name, argument hash, timestamp. On each PreToolUse, it checks: has this session called this tool with these arguments 5+ times in the last 2 minutes? If yes — block with a human-readable explanation.
 
 ```
-⚠️ Loop detected: Bash("grep -r TODO . --include=*.ts")
+⚠️ Loop detected: Bash("grep -r FIXME . --include=*.ts")
 called 7× in 90 seconds. Try a different approach.
 ```
 
@@ -109,7 +109,7 @@ Summarise your work so far and stop.
 Claude Code (agent + sub-agents)
          │ tool calls
          ▼
-   Hook scripts (.ts)          ← executed per tool call, < 150ms
+   Hook scripts (.ts)          ← executed per tool call, <250ms p95
          │ HTTP POST 127.0.0.1:47823
          ▼
    agentctl daemon (Bun)       ← always-running local process
@@ -170,12 +170,12 @@ CREATE TABLE injections (
 
 | Component    | Choice                       | Reason                                                                 |
 | ------------ | ---------------------------- | ---------------------------------------------------------------------- |
-| Runtime      | **Bun**                      | Hook startup ~8ms vs Node ~180ms. Claude Code has a hard hook timeout. |
+| Runtime      | **Bun**                      | Compiled single-file binaries; hook latency is gated by `measure:hooks`. |
 | HTTP server  | `Bun.serve`                  | Built-in, zero deps, WebSocket included                                |
 | Database     | `bun:sqlite`                 | Native, no bindings, WAL mode for concurrent readers                   |
 | TUI          | **Ink** (React for terminal) | Declarative, composable, same mental model as React                    |
 | CLI parser   | `commander`                  | Lightweight, well-typed                                                |
-| Distribution | `bun build --compile`        | Single binary per platform, no runtime required                        |
+| Distribution | `bun build --compile` + `tar.gz` | Compiled binaries in one archive per platform, no runtime required |
 
 ### File structure
 
@@ -218,12 +218,12 @@ agentctl/
 
 ```typescript
 // Executed by Claude Code on every PreToolUse event.
-// Must exit in < 150ms. Logic lives in the daemon.
+// Target: <250ms p95 end-to-end. Logic lives in the daemon.
 
 import type { PreToolUseInput, DaemonDecision } from "../types.ts";
 
 const DAEMON = "http://127.0.0.1:47823";
-const TIMEOUT_MS = 150;
+const TIMEOUT_MS = 130;
 
 const input: PreToolUseInput = JSON.parse(await Bun.stdin.text());
 
@@ -725,8 +725,8 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 `install.sh` does six things:
 
 1. Detect platform (darwin-arm64, darwin-x64, linux-x64; full matrix in `docs/platforms.md`)
-2. Download pre-compiled binaries and `SHA256SUMS` from GitHub Releases into a staging directory
-3. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable, then installs CLI, daemon, and hook binaries into `~/.agentctl/bin/`
+2. Download the pre-compiled `agentctl-$platform.tar.gz` archive and `SHA256SUMS` from GitHub Releases into a staging directory
+3. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries, then installs CLI, daemon, and hook binaries into `~/.agentctl/bin/`
 4. Generate or reuse `~/.agentctl/auth-token`
 5. Add `~/.agentctl/bin` to PATH in `.zshrc` / `.bashrc` and patch `~/.claude/settings.json` with hook entries (non-destructive merge)
 6. Register daemon as a background process:

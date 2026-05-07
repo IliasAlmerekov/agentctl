@@ -30,6 +30,12 @@ If none of launchd, `systemd --user`, or pm2 is available, start the daemon manu
 ~/.agentctl/bin/agentctl-daemon
 ```
 
+## Port conflict
+
+If the daemon log says `agentctl daemon cannot start: 127.0.0.1:47823 is already in use`, another process already owns the agentctl port. Stop any existing `agentctl-daemon` process or free that port, then restart through launchd, `systemd --user`, or pm2.
+
+If the auth token is missing or empty, the daemon log prints an `agentctl daemon cannot start` message that points at `~/.agentctl/auth-token`. Re-running the installer recreates a missing token and resets permissions on an existing one.
+
 ## Bun/PATH
 
 Installed release binaries and `install.sh` do not require Bun. The installer downloads compiled binaries, verifies checksums, and uses the compiled `agentctl` CLI to patch Claude settings.
@@ -50,6 +56,14 @@ bun test
 
 If `agentctl` is not found after install, restart the shell or source the rc file that `install.sh` updated.
 
+## Upgrade / reinstall
+
+Re-running the installer is the supported upgrade path for the beta. It downloads the selected release archive again, verifies `SHA256SUMS`, replaces the installed CLI, daemon, and hook binaries, then patches Claude settings back to the current hook paths.
+
+The reinstall path preserves `~/.agentctl/auth-token`, so existing local CLI, TUI, and hook authentication keep using the same token. It also repairs stale agentctl hook commands and does not duplicate hook entries when the installer is run more than once. Unrelated hook entries in `~/.claude/settings.json` are preserved.
+
+If a daemon registration already exists, the installer rewrites the launchd plist, `systemd --user` service, or pm2 entry for the current `~/.agentctl/bin/agentctl-daemon` path.
+
 ## Stale DB state
 
 Runtime state lives in `~/.agentctl/agents.db`. On daemon startup, previously `running` sessions are reconciled to `stale` because the new daemon cannot prove those agents are still active.
@@ -64,6 +78,10 @@ agentctl status
 ```
 
 Use this only for local runtime cleanup. It discards agent history, pending injections, and token counters from the active DB.
+
+## Control command says `not found`
+
+If `inject`, `cap`, or `kill` prints `not found`, the daemon has no live or historical record for that session ID. Re-run `agentctl agents` and copy the session ID from the current list. For stale sessions, start a fresh Claude Code run; agentctl does not queue future injections for unknown IDs.
 
 ## hook config conflicts
 

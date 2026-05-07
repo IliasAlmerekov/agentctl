@@ -12,6 +12,19 @@ agentctl uses Claude Code command hooks. A hook receives JSON on stdin, talks to
 - When the daemon allows the call, is unavailable, rejects auth, times out, returns an unreadable response, or receives malformed hook input, agentctl hooks exit `0`.
 - This fail open behavior is intentional. agentctl being down must not make Claude Code unusable.
 
+## Latency contract
+
+The public launch contract is `<250ms` p95 for normal compiled hook calls that reach the local daemon. The daemon-unavailable path must stay fail-open and `<75ms` p95, so agentctl being down does not stall Claude Code.
+
+Fresh local Linux evidence from 2026-05-07:
+
+```bash
+rtk env PATH="$HOME/.bun/bin:$PATH" AGENTCTL_HOOK_LATENCY_RUNS=10 bun run measure:hooks
+```
+
+- normal p95: 188.32-197.27ms across pre/post/subagent hooks.
+- daemon-unavailable p95: 39.31-52.04ms across pre/post/subagent hooks.
+
 ## Non-blocking hooks
 
 - `PostToolUse` records token/tool accounting after a tool completes. In agentctl it exits `0`.

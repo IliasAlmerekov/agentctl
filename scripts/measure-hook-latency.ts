@@ -24,15 +24,26 @@ type HookLatencySample = {
   stdout: string;
 };
 
-type HookLatencySummary = {
+export type HookLatencySummary = {
   avg_ms: number;
   max_ms: number;
   min_ms: number;
   p95_ms: number;
 };
 
+export type HookLatencyRow = {
+  hook: string;
+  scenario: HookLatencyScenario;
+  summary: HookLatencySummary;
+};
+
 const TOKEN = "agentctl-hook-latency-token";
 const DEFAULT_RUNS = 10;
+
+export const HOOK_LATENCY_BUDGETS_MS = {
+  normal: 250,
+  "daemon-unavailable": 75,
+} as const satisfies Record<HookLatencyScenario, number>;
 
 export const HOOK_LATENCY_SPECS: HookLatencySpec[] = [
   {
@@ -167,12 +178,8 @@ function measureScenario(
   scenario: HookLatencyScenario,
   home: string,
   runs: number,
-): Array<{ hook: string; scenario: HookLatencyScenario; summary: HookLatencySummary }> {
-  const rows: Array<{
-    hook: string;
-    scenario: HookLatencyScenario;
-    summary: HookLatencySummary;
-  }> = [];
+): HookLatencyRow[] {
+  const rows: HookLatencyRow[] = [];
 
   for (const spec of HOOK_LATENCY_SPECS) {
     const samples = Array.from({ length: runs }, () => runHook(spec, home));
@@ -189,9 +196,18 @@ function measureScenario(
   return rows;
 }
 
-function printRows(
-  rows: Array<{ hook: string; scenario: HookLatencyScenario; summary: HookLatencySummary }>,
-): void {
+export function assertLatencyBudgets(rows: HookLatencyRow[]): void {
+  for (const row of rows) {
+    const budget = HOOK_LATENCY_BUDGETS_MS[row.scenario];
+    if (row.summary.p95_ms > budget) {
+      throw new Error(
+        `${row.hook} ${row.scenario} p95 ${row.summary.p95_ms}ms exceeds budget ${budget}ms`,
+      );
+    }
+  }
+}
+
+function printRows(rows: HookLatencyRow[]): void {
   console.log("hook,scenario,min_ms,avg_ms,p95_ms,max_ms");
   for (const row of rows) {
     const { min_ms, avg_ms, p95_ms, max_ms } = row.summary;
@@ -209,11 +225,7 @@ async function main(): Promise<void> {
 
   buildHooks();
   const home = createTempHome();
-  const rows: Array<{
-    hook: string;
-    scenario: HookLatencyScenario;
-    summary: HookLatencySummary;
-  }> = [];
+  const rows: HookLatencyRow[] = [];
 
   try {
     const stubDaemon = startStubDaemon();
@@ -226,6 +238,7 @@ async function main(): Promise<void> {
     await Bun.sleep(50);
     rows.push(...measureScenario("daemon-unavailable", home, runs));
     printRows(rows);
+    assertLatencyBudgets(rows);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

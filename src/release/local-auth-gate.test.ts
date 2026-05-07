@@ -18,8 +18,8 @@ describe("local daemon auth beta gate", () => {
       "generate_auth_token",
       'chmod 600 "$AUTH_TOKEN_FILE"',
     ]);
-    expectFileToContain("src/daemon/server.ts", [
-      "readAuthToken()",
+    expectFileToContain("src/daemon/startup.ts", [
+      "readAuthToken(home)",
       "createDaemonFetch(db, broadcast, { authToken })",
     ]);
     expectFileToContain("src/daemon/http.ts", [
