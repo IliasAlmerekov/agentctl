@@ -84,6 +84,8 @@ agentctl is a single-user local control plane. The daemon binds only to IPv4 loo
 
 This protects against unauthenticated local HTTP clients accidentally or opportunistically controlling agents through the daemon port. It does not protect against code already running as your user that can read files under your home directory, replace agentctl binaries, or edit Claude Code hook settings.
 
+A short security note is available in `docs/security.md`.
+
 ## Architecture
 
 ```
