@@ -88,7 +88,7 @@ The exact `exit(2)` blocking contract and limitations are documented in `docs/ho
 The daemon tracks every tool call: session ID, tool name, argument hash, timestamp. On each PreToolUse, it checks: has this session called this tool with these arguments 5+ times in the last 2 minutes? If yes — block with a human-readable explanation.
 
 ```
-⚠️ Loop detected: Bash("grep -r TODO . --include=*.ts")
+⚠️ Loop detected: Bash("grep -r FIXME . --include=*.ts")
 called 7× in 90 seconds. Try a different approach.
 ```
 

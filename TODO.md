@@ -185,18 +185,20 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun run smoke:install
 
 ### 11. Sync public docs after release workflow lands
 
-- [ ] README install command works exactly as written.
-- [ ] README explains beta status and supported platforms.
-- [ ] README links release notes or changelog.
-- [ ] `docs/platforms.md` matches release artifacts.
-- [ ] `docs/security.md` does not overclaim same-user protection.
-- [ ] `docs/troubleshooting.md` covers no-Bun install, daemon startup, auth token, port conflict, stale DB, and hook conflicts.
-- [ ] `docs/hook-contract.md` matches measured hook behavior.
+Resolved: public docs are now gated by a scripted drift check instead of a raw grep, because planning files and regression tests intentionally contain launch checklist and fixture strings.
+
+- [x] README install command works exactly as written.
+- [x] README explains beta status and supported platforms.
+- [x] README links release notes or changelog.
+- [x] `docs/platforms.md` matches release artifacts.
+- [x] `docs/security.md` does not overclaim same-user protection.
+- [x] `docs/troubleshooting.md` covers no-Bun install, daemon startup, auth token, port conflict, stale DB, and hook conflicts.
+- [x] `docs/hook-contract.md` matches measured hook behavior.
 
 Acceptance:
 
 ```bash
-rtk grep "TODO\\|not implemented\\|placeholder\\|your-org\\|OWNER/REPO" README.md ROADMAP.md TODO.md install.sh docs src .github
+rtk env PATH="$HOME/.bun/bin:$PATH" bun run check:public-doc-drift
 rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/release
 ```
 

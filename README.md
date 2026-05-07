@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 By default, the installer downloads the `latest` assets from `https://github.com/IliasAlmerekov/agentctl/releases`. Set `AGENTCTL_VERSION` to pin a release tag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0 bash
+curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0-beta.1 bash
 ```
 
 For the detected platform, the release must include `SHA256SUMS` plus `agentctl-$platform.tar.gz`. That archive contains the CLI, daemon, and hook binaries. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries.
@@ -52,6 +52,17 @@ It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.
 Supported and unsupported platforms are listed in `docs/platforms.md`.
 Troubleshooting for daemon, PATH, stale DB, and hook config problems is in `docs/troubleshooting.md`.
 MVP out-of-scope items are listed in `docs/out-of-scope.md`.
+Release notes and changes are tracked in `CHANGELOG.md`.
+
+## Beta status
+
+agentctl is preparing its first public beta. The public install path is the
+`main` branch installer plus GitHub Release archives, and the release smoke
+workflow verifies that path before announcement.
+
+The supported beta release platforms are macOS Apple Silicon, macOS Intel, and
+Linux x64. Windows and Linux arm64 are not supported. See `docs/platforms.md`
+for the full platform matrix and unsupported cases.
 
 ## Usage
 
