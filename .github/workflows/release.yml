@@ -67,8 +67,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Download release assets for private smoke
+        if: ${{ github.event.repository.private }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "${{ runner.temp }}/agentctl-release-assets"
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "${{ runner.temp }}/agentctl-release-assets" \
+            --pattern "agentctl-*.tar.gz" \
+            --pattern "SHA256SUMS"
+
       - name: Public release install smoke
+        if: ${{ !github.event.repository.private }}
         env:
           AGENTCTL_VERSION: ${{ github.ref_name }}
           AGENTCTL_SMOKE_INSTALL_SOURCE: public
+        run: bash scripts/smoke-install.sh
+
+      - name: Private release assets install smoke
+        if: ${{ github.event.repository.private }}
+        env:
+          AGENTCTL_BASE_URL: file://${{ runner.temp }}/agentctl-release-assets
+          AGENTCTL_VERSION: ${{ github.ref_name }}
+          AGENTCTL_SMOKE_INSTALL_SOURCE: release-assets
         run: bash scripts/smoke-install.sh
