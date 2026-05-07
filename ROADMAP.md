@@ -12,7 +12,7 @@ This roadmap starts after the MVP checklist. The goal is to move agentctl from a
 
 Known production gaps:
 
-- CI release smoke tests and public-doc sync are still open.
+- Public-doc sync is still open.
 
 ## Release Bar
 
@@ -123,7 +123,7 @@ Tasks:
 - [x] Add `agentctl uninstall` or remove the docs promise.
 - [x] Add install repair mode for existing hook entries.
 - [x] Add installer dry-run tests where practical.
-- [ ] Add CI workflow for test, typecheck, build, and release artifact smoke tests.
+- [x] Add CI workflow for test, typecheck, build, and release artifact smoke tests.
 
 Verification:
 
