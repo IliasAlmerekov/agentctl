@@ -66,3 +66,24 @@ jobs:
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
+
+  release-smoke:
+    needs: publish-release
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Public release install smoke
+        env:
+          AGENTCTL_VERSION: ${{ github.ref_name }}
+          AGENTCTL_SMOKE_INSTALL_SOURCE: public
+        run: bash scripts/smoke-install.sh

@@ -85,11 +85,11 @@ rtk proxy bash -lc 'tmp="$(mktemp -d)"; HOME="$tmp" PATH="/usr/bin:/bin" AGENTCT
 
 Current risk: local `file://dist` smoke passes, but public users install from GitHub Releases.
 
-- [ ] Add a smoke path that installs from `https://github.com/IliasAlmerekov/agentctl/releases/...`.
-- [ ] Run the smoke test on `ubuntu-latest`.
-- [ ] Run the smoke test on `macos-latest`.
-- [ ] Verify `agentctl status` after daemon start.
-- [ ] Verify `agentctl uninstall` removes hooks, daemon registration, and `~/.agentctl`.
+- [x] Add a smoke path that installs from `https://github.com/IliasAlmerekov/agentctl/releases/...`.
+- [x] Run the smoke test on `ubuntu-latest`.
+- [x] Run the smoke test on `macos-latest`.
+- [x] Verify `agentctl status` after daemon start.
+- [x] Verify `agentctl uninstall` removes hooks, daemon registration, and `~/.agentctl`.
 
 Acceptance:
 
