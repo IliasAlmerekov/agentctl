@@ -14,6 +14,9 @@ describe("public install URL check", () => {
     expect(packageJson.scripts?.["check:public-install-url"]).toBe(
       `bun run ${SCRIPT}`,
     );
+    expect(workflow).toContain(
+      "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+    );
     expect(workflow).toContain("bun run check:public-install-url");
   });
 
