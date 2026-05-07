@@ -138,32 +138,73 @@ fi
 bun -e "
 const fs = require('fs');
 const path = '$CLAUDE_SETTINGS';
+const hooksDir = '$HOOKS_DIR';
 const settings = JSON.parse(fs.readFileSync(path, 'utf8'));
 settings.hooks ??= {};
 
-const hookCmd = (name) => ({
-  type: 'command',
-  command: '$HOOKS_DIR/' + name
-});
-
-settings.hooks.PreToolUse ??= [];
-settings.hooks.PostToolUse ??= [];
-settings.hooks.SubagentStart ??= [];
-settings.hooks.SubagentStop ??= [];
-
-const ensureHook = (arr, name) => {
-  const cmd = '$HOOKS_DIR/' + name;
-  if (!arr.some(h => h.hooks?.some(hh => hh.command === cmd))) {
-    arr.push({ matcher: '', hooks: [{ type: 'command', command: cmd }] });
-  }
+const hookEvents = {
+  PreToolUse: 'pre-tool-use',
+  PostToolUse: 'post-tool-use',
+  SubagentStart: 'subagent-start',
+  SubagentStop: 'subagent-stop'
 };
 
-ensureHook(settings.hooks.PreToolUse, 'pre-tool-use');
-ensureHook(settings.hooks.PostToolUse, 'post-tool-use');
-ensureHook(settings.hooks.SubagentStart, 'subagent-start');
-ensureHook(settings.hooks.SubagentStop, 'subagent-stop');
+const managedHookNames = new Set(Object.values(hookEvents));
+const hookCommand = (name) => hooksDir + '/' + name;
+const isRecord = (value) => typeof value === 'object' && value !== null;
+
+const isManagedAgentctlHookCommand = (command) => {
+  if (typeof command !== 'string') return false;
+
+  const name = command.split('/').pop();
+  if (!managedHookNames.has(name)) return false;
+
+  return command.startsWith(hooksDir + '/') || command.includes('/.agentctl/bin/hooks/');
+};
+
+const repairExistingHookEntries = (entries) => {
+  if (!Array.isArray(entries)) {
+    return { entries: [], repaired: 0 };
+  }
+
+  let repaired = 0;
+  const repairedEntries = entries
+    .map((entry) => {
+      if (!isRecord(entry) || !Array.isArray(entry.hooks)) return entry;
+
+      const keptHooks = entry.hooks.filter((hook) => {
+        if (!isRecord(hook)) return true;
+
+        const remove = isManagedAgentctlHookCommand(hook.command);
+        if (remove) repaired += 1;
+        return !remove;
+      });
+
+      return { ...entry, hooks: keptHooks };
+    })
+    .filter((entry) => {
+      return !isRecord(entry) || !Array.isArray(entry.hooks) || entry.hooks.length > 0;
+    });
+
+  return { entries: repairedEntries, repaired };
+};
+
+let repairedHooks = 0;
+
+for (const [eventName, hookName] of Object.entries(hookEvents)) {
+  const repaired = repairExistingHookEntries(settings.hooks[eventName]);
+  settings.hooks[eventName] = repaired.entries;
+  repairedHooks += repaired.repaired;
+  settings.hooks[eventName].push({
+    matcher: '',
+    hooks: [{ type: 'command', command: hookCommand(hookName) }]
+  });
+}
 
 fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
+if (repairedHooks > 0) {
+  console.log('Repaired ' + repairedHooks + ' existing agentctl hook entries');
+}
 console.log('Patched ~/.claude/settings.json');
 "
 
