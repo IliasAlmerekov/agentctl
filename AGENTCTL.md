@@ -126,6 +126,8 @@ Claude Code (agent + sub-agents)
 
 The daemon binds only to IPv4 loopback (`127.0.0.1:47823`) and requires the local token from `~/.agentctl/auth-token` on CLI, TUI WebSocket, and hook requests. This protects against unauthenticated local HTTP clients on the same machine, but not against code already running as the same user that can read the token or edit hook settings.
 
+A short security note is available in `docs/security.md`.
+
 ### Data model
 
 ```sql
