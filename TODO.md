@@ -240,6 +240,16 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun run smoke:install
 rtk env PATH="$HOME/.bun/bin:$PATH" AGENTCTL_HOOK_LATENCY_RUNS=10 bun run measure:hooks
 ```
 
+Local gate evidence from 2026-05-07:
+
+- `bun install --frozen-lockfile`: passed with no install changes.
+- `bun test`: 129 tests passed.
+- `bun run typecheck`: passed.
+- `bun run build`: passed.
+- `bun audit`: passed with no vulnerabilities.
+- `bun run smoke:install`: passed on Linux x64.
+- `AGENTCTL_HOOK_LATENCY_RUNS=10 bun run measure:hooks`: normal p95 stayed below 250ms and daemon-unavailable p95 stayed below 75ms.
+
 Public release smoke must also pass from the real URL:
 
 ```bash
@@ -250,11 +260,11 @@ AGENTCTL_VERSION=v0.1.0-beta.1 rtk proxy bash -lc 'curl -fsSL https://raw.github
 
 - [ ] README install command works for real users.
 - [ ] Release artifacts are produced and published by CI.
-- [ ] Installer does not require Bun for installed-user flow.
-- [ ] Checksums are verified before binaries are installed.
-- [ ] Unknown-agent control commands behave honestly.
+- [x] Installer does not require Bun for installed-user flow.
+- [x] Checksums are verified before binaries are installed.
+- [x] Unknown-agent control commands behave honestly.
 - [x] Hook latency claim matches measured behavior.
 - [x] Download size is acceptable for a CLI tool.
 - [ ] Linux and macOS release smoke tests pass.
-- [ ] Public docs describe only implemented and verified behavior.
+- [x] Public docs describe only implemented and verified behavior.
 - [ ] A signed-off release tag exists.
