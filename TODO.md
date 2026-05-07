@@ -204,9 +204,9 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/release
 
 ### 12. Add launch release notes
 
-- [ ] State exactly what works: `agents`, `watch`, `status`, `inject`, `cap`, `kill`, `uninstall`.
-- [ ] State supported platforms.
-- [ ] State explicit limitations:
+- [x] State exactly what works: `agents`, `watch`, `status`, `inject`, `cap`, `kill`, `uninstall`.
+- [x] State supported platforms.
+- [x] State explicit limitations:
   - local single-user only
   - no Windows
   - no Linux arm64
@@ -214,12 +214,13 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/release
   - no Web UI
   - not a sandbox against same-user code
   - hooks fail open when agentctl is unavailable
-- [ ] Include recovery links.
-- [ ] Include checksum verification note.
+- [x] Include recovery links.
+- [x] Include checksum verification note.
 
 Acceptance:
 
 ```bash
+rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/release/public-release-notes.test.ts
 rtk read README.md
 rtk read docs/out-of-scope.md
 rtk read docs/security.md

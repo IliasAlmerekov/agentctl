@@ -52,7 +52,7 @@ It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.
 Supported and unsupported platforms are listed in `docs/platforms.md`.
 Troubleshooting for daemon, PATH, stale DB, and hook config problems is in `docs/troubleshooting.md`.
 MVP out-of-scope items are listed in `docs/out-of-scope.md`.
-Release notes and changes are tracked in `CHANGELOG.md`.
+Launch release notes are in `docs/release-notes.md`, and changes are tracked in `CHANGELOG.md`.
 
 ## Beta status
 

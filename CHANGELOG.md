@@ -12,5 +12,6 @@ Current documented release shape:
 - Checksum manifest: `SHA256SUMS`, verified before downloaded binaries are installed
 - Installed-user runtime: compiled binaries only; Bun is development-only
 - Recovery docs: `docs/troubleshooting.md`
+- Launch release notes: `docs/release-notes.md`
 
 The tagged beta entry is created when the first beta tag is cut.
