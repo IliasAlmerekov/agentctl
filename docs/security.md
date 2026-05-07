@@ -12,6 +12,13 @@ agentctl is a single-user local control plane, not a sandbox.
 
 This protects the daemon from unauthenticated local HTTP clients that cannot read the token.
 
+## Auth flow
+
+- Install creates `~/.agentctl/auth-token` with mode `0600`, or reuses the existing token and reapplies mode `0600`.
+- The daemon reads that token on startup before serving protected local endpoints.
+- CLI requests and hook requests send the token in the `X-Agentctl-Token` header.
+- The TUI WebSocket sends the same token as the `token` query parameter.
+
 ## Limits
 
 - Code running as the same user can read `~/.agentctl/auth-token` unless the local account itself is already isolated.
