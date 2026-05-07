@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { createRequire } from "module";
 import { tmpdir } from "os";
 import { join } from "path";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "fs";
 
 const INSTALL_SCRIPT = readFileSync("install.sh", "utf8");
 const requireForInlineScript = createRequire(import.meta.url);
@@ -180,5 +187,44 @@ describe("install.sh hook settings repair", () => {
         }),
       ).toEqual([]);
     }
+  });
+});
+
+describe("install.sh dry run", () => {
+  test("exercises platform selection without network or home mutations", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-dry-run-home-"));
+    const fakeBinDir = mkdtempSync(join(tmpdir(), "agentctl-dry-run-bin-"));
+    const curlLogPath = join(homeDir, "curl-called");
+    const fakeCurl = join(fakeBinDir, "curl");
+    writeFileSync(
+      fakeCurl,
+      `#!/usr/bin/env bash\necho called > ${JSON.stringify(curlLogPath)}\nexit 99\n`,
+    );
+    chmodSync(fakeCurl, 0o755);
+
+    const result = Bun.spawnSync({
+      cmd: ["bash", "install.sh"],
+      env: {
+        ...process.env,
+        AGENTCTL_INSTALL_DRY_RUN: "1",
+        HOME: homeDir,
+        PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const stdout = new TextDecoder().decode(result.stdout);
+    const stderr = new TextDecoder().decode(result.stderr);
+
+    expect(result.success).toBe(true);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Dry run: would install agentctl latest for");
+    expect(stdout).toContain("Dry run: would download release artifacts from");
+    expect(stdout).toContain("Dry run: would patch");
+    expect(stdout).toContain("Dry run: would register daemon");
+    expect(existsSync(curlLogPath)).toBe(false);
+    expect(existsSync(join(homeDir, ".agentctl"))).toBe(false);
+    expect(existsSync(join(homeDir, ".claude", "settings.json"))).toBe(false);
   });
 });
