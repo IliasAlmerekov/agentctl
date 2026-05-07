@@ -154,11 +154,11 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/release/install-script.test.ts 
 
 ### 9. Harden daemon startup errors
 
-- [ ] Add a clear error when `~/.agentctl/auth-token` is missing or empty.
-- [ ] Add a clear error when port `127.0.0.1:47823` is already in use.
-- [ ] Document recovery for port conflicts.
-- [ ] Ensure launchd/systemd logs show actionable startup failures.
-- [ ] Keep hooks fail-open when the daemon is down.
+- [x] Add a clear error when `~/.agentctl/auth-token` is missing or empty.
+- [x] Add a clear error when port `127.0.0.1:47823` is already in use.
+- [x] Document recovery for port conflicts.
+- [x] Ensure launchd/systemd logs show actionable startup failures.
+- [x] Keep hooks fail-open when the daemon is down.
 
 Acceptance:
 

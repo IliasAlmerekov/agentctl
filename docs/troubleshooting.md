@@ -30,6 +30,12 @@ If none of launchd, `systemd --user`, or pm2 is available, start the daemon manu
 ~/.agentctl/bin/agentctl-daemon
 ```
 
+## Port conflict
+
+If the daemon log says `agentctl daemon cannot start: 127.0.0.1:47823 is already in use`, another process already owns the agentctl port. Stop any existing `agentctl-daemon` process or free that port, then restart through launchd, `systemd --user`, or pm2.
+
+If the auth token is missing or empty, the daemon log prints an `agentctl daemon cannot start` message that points at `~/.agentctl/auth-token`. Re-running the installer recreates a missing token and resets permissions on an existing one.
+
 ## Bun/PATH
 
 Installed release binaries and `install.sh` do not require Bun. The installer downloads compiled binaries, verifies checksums, and uses the compiled `agentctl` CLI to patch Claude settings.
