@@ -1,7 +1,61 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "fs";
+import { createRequire } from "module";
+import { tmpdir } from "os";
+import { join } from "path";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 
 const INSTALL_SCRIPT = readFileSync("install.sh", "utf8");
+const requireForInlineScript = createRequire(import.meta.url);
+
+const HOOKS = {
+  PreToolUse: "pre-tool-use",
+  PostToolUse: "post-tool-use",
+  SubagentStart: "subagent-start",
+  SubagentStop: "subagent-stop",
+} as const;
+
+type HookEvent = keyof typeof HOOKS;
+type Settings = {
+  hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
+};
+
+function extractSettingsPatchScript(settingsPath: string, hooksDir: string): string {
+  const startMarker = 'bun -e "\n';
+  const start = INSTALL_SCRIPT.indexOf(startMarker);
+  const end = INSTALL_SCRIPT.indexOf('\n"', start + startMarker.length);
+
+  if (start === -1 || end === -1) {
+    throw new Error("Could not find install settings patch script");
+  }
+
+  return INSTALL_SCRIPT.slice(start + startMarker.length, end)
+    .replace(
+      "const path = '$CLAUDE_SETTINGS';",
+      `const path = ${JSON.stringify(settingsPath)};`,
+    )
+    .replace(
+      "const hooksDir = '$HOOKS_DIR';",
+      `const hooksDir = ${JSON.stringify(hooksDir)};`,
+    )
+    .replaceAll(
+      "'$HOOKS_DIR/' + name",
+      `${JSON.stringify(`${hooksDir}/`)} + name`,
+    );
+}
+
+function runSettingsPatchScript(settingsPath: string, hooksDir: string): Settings {
+  const script = extractSettingsPatchScript(settingsPath, hooksDir);
+  new Function("require", script)(requireForInlineScript);
+  return JSON.parse(readFileSync(settingsPath, "utf8")) as Settings;
+}
+
+function hookCommands(settings: Settings, event: HookEvent): string[] {
+  return (
+    settings.hooks?.[event]?.flatMap((entry) => {
+      return entry.hooks?.flatMap((hook) => hook.command ?? []) ?? [];
+    }) ?? []
+  );
+}
 
 describe("install.sh checksum verification", () => {
   test("downloads the published checksum manifest", () => {
@@ -37,5 +91,94 @@ describe("install.sh checksum verification", () => {
     expect(INSTALL_SCRIPT.indexOf("verify_downloads")).toBeLessThan(
       INSTALL_SCRIPT.indexOf("chmod +x"),
     );
+  });
+});
+
+describe("install.sh hook settings repair", () => {
+  test("repairs stale agentctl hook entries and keeps unrelated hooks", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-install-"));
+    const claudeDir = join(homeDir, ".claude");
+    const settingsPath = join(claudeDir, "settings.json");
+    const hooksDir = join(homeDir, ".agentctl", "bin", "hooks");
+    const staleHooksDir = join(homeDir, "old", ".agentctl", "bin", "hooks");
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(staleHooksDir, "pre-tool-use"),
+                },
+                {
+                  type: "command",
+                  command: "/usr/local/bin/other-pre-hook",
+                },
+              ],
+            },
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(hooksDir, "pre-tool-use"),
+                },
+              ],
+            },
+          ],
+          PostToolUse: [
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(staleHooksDir, "post-tool-use"),
+                },
+              ],
+            },
+          ],
+          SubagentStart: [
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(staleHooksDir, "subagent-stop"),
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    const settings = runSettingsPatchScript(settingsPath, hooksDir);
+
+    expect(hookCommands(settings, "PreToolUse")).toContain(
+      "/usr/local/bin/other-pre-hook",
+    );
+
+    for (const [eventName, hookName] of Object.entries(HOOKS) as Array<
+      [HookEvent, string]
+    >) {
+      const canonicalCommand = join(hooksDir, hookName);
+      const commands = hookCommands(settings, eventName);
+
+      expect(commands.filter((command) => command === canonicalCommand)).toHaveLength(
+        1,
+      );
+      expect(
+        commands.filter((command) => {
+          return (
+            command.includes("/.agentctl/bin/hooks/") &&
+            command !== canonicalCommand
+          );
+        }),
+      ).toEqual([]);
+    }
   });
 });
