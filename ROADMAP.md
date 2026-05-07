@@ -196,7 +196,7 @@ Exit criteria:
 
 Before tagging a beta release:
 
-- [ ] `inject`, `cap`, and `kill` are covered by tests.
+- [x] `inject`, `cap`, and `kill` are covered by tests.
 - [ ] Local daemon auth is implemented and documented.
 - [ ] Restart reconciliation is implemented.
 - [ ] Installer uses the real repository and verifies release artifacts.
