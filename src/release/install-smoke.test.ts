@@ -28,6 +28,8 @@ describe("install smoke workflow", () => {
     expect(existsSync(INSTALL_SMOKE_WORKFLOW)).toBe(true);
     const workflow = readFileSync(INSTALL_SMOKE_WORKFLOW, "utf8");
 
+    expect(workflow).toContain("push:");
+    expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("ubuntu-latest");
     expect(workflow).toContain("macos-latest");
