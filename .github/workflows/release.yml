@@ -41,24 +41,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           files=(
-            dist/agentctl-darwin-arm64
-            dist/agentctl-daemon-darwin-arm64
-            dist/pre-tool-use-darwin-arm64
-            dist/post-tool-use-darwin-arm64
-            dist/subagent-start-darwin-arm64
-            dist/subagent-stop-darwin-arm64
-            dist/agentctl-darwin-x64
-            dist/agentctl-daemon-darwin-x64
-            dist/pre-tool-use-darwin-x64
-            dist/post-tool-use-darwin-x64
-            dist/subagent-start-darwin-x64
-            dist/subagent-stop-darwin-x64
-            dist/agentctl-linux-x64
-            dist/agentctl-daemon-linux-x64
-            dist/pre-tool-use-linux-x64
-            dist/post-tool-use-linux-x64
-            dist/subagent-start-linux-x64
-            dist/subagent-stop-linux-x64
+            dist/agentctl-darwin-arm64.tar.gz
+            dist/agentctl-darwin-x64.tar.gz
+            dist/agentctl-linux-x64.tar.gz
             dist/SHA256SUMS
           )
 

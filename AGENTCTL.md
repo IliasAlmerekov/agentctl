@@ -175,7 +175,7 @@ CREATE TABLE injections (
 | Database     | `bun:sqlite`                 | Native, no bindings, WAL mode for concurrent readers                   |
 | TUI          | **Ink** (React for terminal) | Declarative, composable, same mental model as React                    |
 | CLI parser   | `commander`                  | Lightweight, well-typed                                                |
-| Distribution | `bun build --compile`        | Single binary per platform, no runtime required                        |
+| Distribution | `bun build --compile` + `tar.gz` | Compiled binaries in one archive per platform, no runtime required |
 
 ### File structure
 
@@ -725,8 +725,8 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 `install.sh` does six things:
 
 1. Detect platform (darwin-arm64, darwin-x64, linux-x64; full matrix in `docs/platforms.md`)
-2. Download pre-compiled binaries and `SHA256SUMS` from GitHub Releases into a staging directory
-3. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable, then installs CLI, daemon, and hook binaries into `~/.agentctl/bin/`
+2. Download the pre-compiled `agentctl-$platform.tar.gz` archive and `SHA256SUMS` from GitHub Releases into a staging directory
+3. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries, then installs CLI, daemon, and hook binaries into `~/.agentctl/bin/`
 4. Generate or reuse `~/.agentctl/auth-token`
 5. Add `~/.agentctl/bin` to PATH in `.zshrc` / `.bashrc` and patch `~/.claude/settings.json` with hook entries (non-destructive merge)
 6. Register daemon as a background process:

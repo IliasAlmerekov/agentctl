@@ -30,29 +30,14 @@ rtk proxy curl -I -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentct
 
 ### 2. Publish real GitHub Releases
 
-Current risk: local build artifacts exist, but public install depends on GitHub Releases containing every platform artifact plus `SHA256SUMS`.
+Current risk: local build artifacts exist, but public install depends on GitHub Releases containing every platform archive plus `SHA256SUMS`.
 
 - [x] Add a tag-driven release workflow.
 - [x] Build release artifacts in CI, not on a local workstation.
 - [x] Upload these files for every release:
-  - `agentctl-darwin-arm64`
-  - `agentctl-daemon-darwin-arm64`
-  - `pre-tool-use-darwin-arm64`
-  - `post-tool-use-darwin-arm64`
-  - `subagent-start-darwin-arm64`
-  - `subagent-stop-darwin-arm64`
-  - `agentctl-darwin-x64`
-  - `agentctl-daemon-darwin-x64`
-  - `pre-tool-use-darwin-x64`
-  - `post-tool-use-darwin-x64`
-  - `subagent-start-darwin-x64`
-  - `subagent-stop-darwin-x64`
-  - `agentctl-linux-x64`
-  - `agentctl-daemon-linux-x64`
-  - `pre-tool-use-linux-x64`
-  - `post-tool-use-linux-x64`
-  - `subagent-start-linux-x64`
-  - `subagent-stop-linux-x64`
+  - `agentctl-darwin-arm64.tar.gz`
+  - `agentctl-darwin-x64.tar.gz`
+  - `agentctl-linux-x64.tar.gz`
   - `SHA256SUMS`
 - [x] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
 - [ ] Create the first beta tag, for example `v0.1.0-beta.1`.
@@ -135,13 +120,13 @@ rtk env PATH="$HOME/.bun/bin:$PATH" AGENTCTL_HOOK_LATENCY_RUNS=10 bun run measur
 
 ### 7. Reduce release download weight
 
-Current risk: each platform currently downloads six compiled Bun binaries. Linux x64 is roughly 585 MB total, macOS arm64 roughly 363 MB total, and macOS x64 roughly 393 MB total.
+Resolved: each platform now downloads one compressed archive instead of six compiled Bun binaries. Fresh local archive sizes are 133 MB for macOS arm64, 147 MB for macOS x64, and 225 MB for Linux x64.
 
-- [ ] Package per-platform assets into one archive, or reduce the number of compiled binaries.
-- [ ] Consider one `agentctl` binary with subcommands for hook dispatch.
-- [ ] Keep checksum verification for the final downloadable artifact.
-- [ ] Update `install.sh`, `SHA256SUMS`, docs, and release tests.
-- [ ] Set an explicit size budget for first public release.
+- [x] Package per-platform assets into one archive, or reduce the number of compiled binaries.
+- [x] Consider one `agentctl` binary with subcommands for hook dispatch: deferred because archive packaging is the smaller launch-safe change.
+- [x] Keep checksum verification for the final downloadable artifact.
+- [x] Update `install.sh`, `SHA256SUMS`, docs, and release tests.
+- [x] Set an explicit size budget for first public release: each compressed platform archive must stay under 250 MB.
 
 Acceptance:
 
@@ -266,7 +251,7 @@ AGENTCTL_VERSION=v0.1.0-beta.1 rtk proxy bash -lc 'curl -fsSL https://raw.github
 - [ ] Checksums are verified before binaries are installed.
 - [ ] Unknown-agent control commands behave honestly.
 - [x] Hook latency claim matches measured behavior.
-- [ ] Download size is acceptable for a CLI tool.
+- [x] Download size is acceptable for a CLI tool.
 - [ ] Linux and macOS release smoke tests pass.
 - [ ] Public docs describe only implemented and verified behavior.
 - [ ] A signed-off release tag exists.

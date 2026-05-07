@@ -45,7 +45,7 @@ By default, the installer downloads the `latest` assets from `https://github.com
 curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0 bash
 ```
 
-For the detected platform, the release must include `SHA256SUMS` plus these artifacts: `agentctl-$platform`, `agentctl-daemon-$platform`, `pre-tool-use-$platform`, `post-tool-use-$platform`, `subagent-start-$platform`, and `subagent-stop-$platform`. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable.
+For the detected platform, the release must include `SHA256SUMS` plus `agentctl-$platform.tar.gz`. That archive contains the CLI, daemon, and hook binaries. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries.
 
 It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.agentctl/bin/hooks/`, generates or reuses `~/.agentctl/auth-token`, patches `~/.claude/settings.json`, then registers the daemon with launchd, `systemd --user`, or pm2 when available. After install, restart your shell or reload your rc file, then run `agentctl status`.
 
@@ -127,4 +127,4 @@ bun run build           # compile all binaries to dist/
 | Database | bun:sqlite | Native, WAL mode, no bindings |
 | TUI | Ink (React for terminal) | Declarative, composable |
 | CLI parser | commander | Lightweight, well-typed |
-| Distribution | bun build --compile | Single binary, no runtime required |
+| Distribution | bun build --compile + tar.gz | Compiled binaries in one archive per platform, no runtime required |

@@ -1,23 +1,23 @@
 # Platform Support
 
-agentctl release artifacts are built from the release manifest in `src/release/build-artifacts.ts`. The installer maps the local `uname` result to one of these artifact suffixes and exits with `Unsupported platform` for anything else.
+agentctl release archives are built from the release manifest in `src/release/build-artifacts.ts`. The installer maps the local `uname` result to one of these platform suffixes and exits with `Unsupported platform` for anything else.
 
 ## Supported platforms
 
-| Platform | Installer detection | Bun compile target | Release artifact suffix |
+| Platform | Installer detection | Bun compile target | Release archive |
 | --- | --- | --- | --- |
-| macOS Apple Silicon | `Darwin-arm64` | `bun-darwin-arm64` | `darwin-arm64` |
-| macOS Intel | `Darwin-x86_64` | `bun-darwin-x64` | `darwin-x64` |
-| Linux x64 | `Linux-x86_64` | `bun-linux-x64` | `linux-x64` |
+| macOS Apple Silicon | `Darwin-arm64` | `bun-darwin-arm64` | `agentctl-darwin-arm64.tar.gz` |
+| macOS Intel | `Darwin-x86_64` | `bun-darwin-x64` | `agentctl-darwin-x64.tar.gz` |
+| Linux x64 | `Linux-x86_64` | `bun-linux-x64` | `agentctl-linux-x64.tar.gz` |
 
-Each supported platform must publish these release artifacts plus `SHA256SUMS`:
+Each supported platform must publish one release archive plus `SHA256SUMS`. The archive contains:
 
-- `agentctl-$platform`
-- `agentctl-daemon-$platform`
-- `pre-tool-use-$platform`
-- `post-tool-use-$platform`
-- `subagent-start-$platform`
-- `subagent-stop-$platform`
+- `agentctl`
+- `agentctl-daemon`
+- `hooks/pre-tool-use`
+- `hooks/post-tool-use`
+- `hooks/subagent-start`
+- `hooks/subagent-stop`
 
 ## Unsupported platforms
 

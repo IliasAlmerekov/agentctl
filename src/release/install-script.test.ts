@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "crypto";
 import { tmpdir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import {
   chmodSync,
   existsSync,
@@ -41,6 +41,36 @@ function hookCommands(settings: Settings, event: HookEvent): string[] {
   );
 }
 
+function createFakeReleaseArchive(
+  distDir: string,
+  platform: string,
+  files: Record<string, string>,
+): string {
+  const payloadDir = join(distDir, `payload-${platform}`);
+  mkdirSync(payloadDir, { recursive: true });
+
+  for (const [relativePath, content] of Object.entries(files)) {
+    const filePath = join(payloadDir, relativePath);
+    mkdirSync(dirname(filePath), { recursive: true });
+    writeFileSync(filePath, content);
+    chmodSync(filePath, 0o755);
+  }
+
+  const archiveName = `agentctl-${platform}.tar.gz`;
+  const archivePath = join(distDir, archiveName);
+  const result = Bun.spawnSync({
+    cmd: ["tar", "-czf", archivePath, "-C", payloadDir, "."],
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  if (!result.success) {
+    throw new Error(new TextDecoder().decode(result.stderr));
+  }
+
+  return archivePath;
+}
+
 describe("install.sh checksum verification", () => {
   test("downloads release artifacts from the real GitHub repository", () => {
     expect(INSTALL_SCRIPT).toContain('REPO="IliasAlmerekov/agentctl"');
@@ -61,24 +91,16 @@ describe("install.sh checksum verification", () => {
     );
   });
 
-  test("verifies every downloaded artifact for the selected platform", () => {
+  test("verifies the selected platform archive before extraction", () => {
+    expect(INSTALL_SCRIPT).toContain('ARCHIVE="agentctl-$PLATFORM.tar.gz"');
     expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "agentctl-$PLATFORM" "$(staged_artifact_path "agentctl-$PLATFORM")"',
+      'verify_checksum "$ARCHIVE" "$(staged_artifact_path "$ARCHIVE")"',
     );
     expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "agentctl-daemon-$PLATFORM" "$(staged_artifact_path "agentctl-daemon-$PLATFORM")"',
+      'tar -xzf "$(staged_artifact_path "$ARCHIVE")" -C "$PAYLOAD_DIR"',
     );
-    expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "pre-tool-use-$PLATFORM" "$(staged_artifact_path "pre-tool-use-$PLATFORM")"',
-    );
-    expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "post-tool-use-$PLATFORM" "$(staged_artifact_path "post-tool-use-$PLATFORM")"',
-    );
-    expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "subagent-start-$PLATFORM" "$(staged_artifact_path "subagent-start-$PLATFORM")"',
-    );
-    expect(INSTALL_SCRIPT).toContain(
-      'verify_checksum "subagent-stop-$PLATFORM" "$(staged_artifact_path "subagent-stop-$PLATFORM")"',
+    expect(INSTALL_SCRIPT).not.toContain(
+      'curl -fsSL "$BASE_URL/agentctl-$PLATFORM"',
     );
   });
 
@@ -93,9 +115,7 @@ describe("install.sh checksum verification", () => {
     const fakeBinDir = mkdtempSync(join(tmpdir(), "agentctl-checksum-bin-"));
     const binDir = join(homeDir, ".agentctl", "bin");
     const installedCli = join(binDir, "agentctl");
-    const expectedHash = createHash("sha256")
-      .update("expected artifact")
-      .digest("hex");
+    const expectedHash = createHash("sha256").update("expected archive").digest("hex");
     mkdirSync(binDir, { recursive: true });
     writeFileSync(installedCli, "known-good binary");
     chmodSync(installedCli, 0o755);
@@ -124,7 +144,7 @@ done
 
 mkdir -p "$(dirname "$out")"
 if [[ "$url" == *"/SHA256SUMS" ]]; then
-  printf '%s  agentctl-linux-x64\\n' "${expectedHash}" > "$out"
+  printf '%s  agentctl-linux-x64.tar.gz\\n' "${expectedHash}" > "$out"
 else
   printf 'tampered artifact' > "$out"
 fi
@@ -145,7 +165,7 @@ fi
     const stderr = new TextDecoder().decode(result.stderr);
 
     expect(result.success).toBe(false);
-    expect(stderr).toContain("Checksum mismatch for agentctl-linux-x64");
+    expect(stderr).toContain("Checksum mismatch for agentctl-linux-x64.tar.gz");
     expect(readFileSync(installedCli, "utf8")).toBe("known-good binary");
   });
 });
@@ -156,6 +176,7 @@ describe("install.sh runtime requirements", () => {
     expect(INSTALL_SCRIPT).toContain("command -v curl");
     expect(INSTALL_SCRIPT).toContain("command -v sha256sum");
     expect(INSTALL_SCRIPT).toContain("command -v shasum");
+    expect(INSTALL_SCRIPT).toContain("command -v tar");
     expect(INSTALL_SCRIPT).toContain("command -v openssl");
     expect(INSTALL_SCRIPT).toContain("command -v od");
     expect(INSTALL_SCRIPT).toContain("\npreflight_requirements\n\nmkdir -p \"$HOOKS_DIR\"");
@@ -171,20 +192,8 @@ describe("install.sh runtime requirements", () => {
   test("runs from release artifacts with a clean user PATH that has no Bun", () => {
     const distDir = mkdtempSync(join(tmpdir(), "agentctl-dist-"));
     const homeDir = mkdtempSync(join(tmpdir(), "agentctl-no-bun-home-"));
-    const artifacts = [
-      "agentctl-linux-x64",
-      "agentctl-daemon-linux-x64",
-      "pre-tool-use-linux-x64",
-      "post-tool-use-linux-x64",
-      "subagent-start-linux-x64",
-      "subagent-stop-linux-x64",
-    ];
-    const checksumLines: string[] = [];
-
-    for (const artifact of artifacts) {
-      const artifactPath = join(distDir, artifact);
-      const content = artifact.startsWith("agentctl-linux")
-        ? `#!/usr/bin/env bash
+    const archivePath = createFakeReleaseArchive(distDir, "linux-x64", {
+      agentctl: `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1" == "install-hooks" ]]; then
   settings=""
@@ -208,16 +217,17 @@ if [[ "$1" == "install-hooks" ]]; then
   exit 0
 fi
 echo "fake agentctl"
-`
-        : `#!/usr/bin/env bash
-echo "${artifact}"
-`;
-      writeFileSync(artifactPath, content);
-      chmodSync(artifactPath, 0o755);
-      checksumLines.push(
-        `${createHash("sha256").update(content).digest("hex")}  ${artifact}`,
-      );
-    }
+`,
+      "agentctl-daemon": "#!/usr/bin/env bash\necho agentctl-daemon\n",
+      "hooks/pre-tool-use": "#!/usr/bin/env bash\necho pre-tool-use\n",
+      "hooks/post-tool-use": "#!/usr/bin/env bash\necho post-tool-use\n",
+      "hooks/subagent-start": "#!/usr/bin/env bash\necho subagent-start\n",
+      "hooks/subagent-stop": "#!/usr/bin/env bash\necho subagent-stop\n",
+    });
+    const archive = readFileSync(archivePath);
+    const checksumLines = [
+      `${createHash("sha256").update(archive).digest("hex")}  agentctl-linux-x64.tar.gz`,
+    ];
 
     writeFileSync(join(distDir, "SHA256SUMS"), `${checksumLines.join("\n")}\n`);
 

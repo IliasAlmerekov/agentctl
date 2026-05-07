@@ -46,24 +46,9 @@ jobs:
         run: |
           test -s dist/SHA256SUMS
           artifacts=(
-            agentctl-darwin-arm64
-            agentctl-daemon-darwin-arm64
-            pre-tool-use-darwin-arm64
-            post-tool-use-darwin-arm64
-            subagent-start-darwin-arm64
-            subagent-stop-darwin-arm64
-            agentctl-darwin-x64
-            agentctl-daemon-darwin-x64
-            pre-tool-use-darwin-x64
-            post-tool-use-darwin-x64
-            subagent-start-darwin-x64
-            subagent-stop-darwin-x64
-            agentctl-linux-x64
-            agentctl-daemon-linux-x64
-            pre-tool-use-linux-x64
-            post-tool-use-linux-x64
-            subagent-start-linux-x64
-            subagent-stop-linux-x64
+            agentctl-darwin-arm64.tar.gz
+            agentctl-darwin-x64.tar.gz
+            agentctl-linux-x64.tar.gz
           )
 
           for artifact in "${artifacts[@]}"; do
@@ -71,9 +56,9 @@ jobs:
             grep -q "  $artifact$" dist/SHA256SUMS
           done
 
-          test -x dist/agentctl-linux-x64
-          test -x dist/agentctl-daemon-linux-x64
-          test -x dist/pre-tool-use-linux-x64
-          test -x dist/post-tool-use-linux-x64
-          test -x dist/subagent-start-linux-x64
-          test -x dist/subagent-stop-linux-x64
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./agentctl$'
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./agentctl-daemon$'
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/pre-tool-use$'
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/post-tool-use$'
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/subagent-start$'
+          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/subagent-stop$'

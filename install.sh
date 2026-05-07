@@ -23,9 +23,10 @@ case "$OS-$ARCH" in
     ;;
 esac
 
-# ─── 2. Download binaries ─────────────────────────────────────────────────────
+# ─── 2. Download release archive ───────────────────────────────────────────────
 VERSION="${AGENTCTL_VERSION:-latest}"
 BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"
+ARCHIVE="agentctl-$PLATFORM.tar.gz"
 DRY_RUN="${AGENTCTL_INSTALL_DRY_RUN:-0}"
 SKIP_DAEMON_REGISTRATION="${AGENTCTL_SKIP_DAEMON_REGISTRATION:-0}"
 
@@ -47,6 +48,11 @@ preflight_requirements() {
 
   if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
     echo "Missing required checksum command: sha256sum or shasum" >&2
+    missing=1
+  fi
+
+  if ! command -v tar >/dev/null 2>&1; then
+    echo "Missing required command: tar" >&2
     missing=1
   fi
 
@@ -77,6 +83,7 @@ preflight_requirements
 mkdir -p "$HOOKS_DIR"
 DOWNLOAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentctl-install.XXXXXX")"
 CHECKSUMS_DOWNLOAD="$DOWNLOAD_DIR/SHA256SUMS"
+PAYLOAD_DIR="$DOWNLOAD_DIR/payload"
 
 cleanup_downloads() {
   rm -rf "$DOWNLOAD_DIR"
@@ -87,6 +94,11 @@ trap cleanup_downloads EXIT
 staged_artifact_path() {
   local artifact="$1"
   echo "$DOWNLOAD_DIR/$artifact"
+}
+
+payload_path() {
+  local path="$1"
+  echo "$PAYLOAD_DIR/$path"
 }
 
 generate_auth_token() {
@@ -142,22 +154,42 @@ verify_checksum() {
 }
 
 verify_downloads() {
-  verify_checksum "agentctl-$PLATFORM" "$(staged_artifact_path "agentctl-$PLATFORM")"
-  verify_checksum "agentctl-daemon-$PLATFORM" "$(staged_artifact_path "agentctl-daemon-$PLATFORM")"
-  verify_checksum "pre-tool-use-$PLATFORM" "$(staged_artifact_path "pre-tool-use-$PLATFORM")"
-  verify_checksum "post-tool-use-$PLATFORM" "$(staged_artifact_path "post-tool-use-$PLATFORM")"
-  verify_checksum "subagent-start-$PLATFORM" "$(staged_artifact_path "subagent-start-$PLATFORM")"
-  verify_checksum "subagent-stop-$PLATFORM" "$(staged_artifact_path "subagent-stop-$PLATFORM")"
+  verify_checksum "$ARCHIVE" "$(staged_artifact_path "$ARCHIVE")"
+}
+
+extract_downloads() {
+  mkdir -p "$PAYLOAD_DIR"
+  tar -xzf "$(staged_artifact_path "$ARCHIVE")" -C "$PAYLOAD_DIR"
+}
+
+verify_payload() {
+  local file
+
+  for file in \
+    agentctl \
+    agentctl-daemon \
+    hooks/pre-tool-use \
+    hooks/post-tool-use \
+    hooks/subagent-start \
+    hooks/subagent-stop
+  do
+    if [[ ! -f "$(payload_path "$file")" ]]; then
+      echo "Release archive is missing $file" >&2
+      exit 1
+    fi
+  done
 }
 
 install_downloads() {
+  extract_downloads
+  verify_payload
   cp "$CHECKSUMS_DOWNLOAD" "$CHECKSUMS_FILE"
-  mv "$(staged_artifact_path "agentctl-$PLATFORM")" "$BIN_DIR/agentctl"
-  mv "$(staged_artifact_path "agentctl-daemon-$PLATFORM")" "$BIN_DIR/agentctl-daemon"
-  mv "$(staged_artifact_path "pre-tool-use-$PLATFORM")" "$HOOKS_DIR/pre-tool-use"
-  mv "$(staged_artifact_path "post-tool-use-$PLATFORM")" "$HOOKS_DIR/post-tool-use"
-  mv "$(staged_artifact_path "subagent-start-$PLATFORM")" "$HOOKS_DIR/subagent-start"
-  mv "$(staged_artifact_path "subagent-stop-$PLATFORM")" "$HOOKS_DIR/subagent-stop"
+  mv "$(payload_path "agentctl")" "$BIN_DIR/agentctl"
+  mv "$(payload_path "agentctl-daemon")" "$BIN_DIR/agentctl-daemon"
+  mv "$(payload_path "hooks/pre-tool-use")" "$HOOKS_DIR/pre-tool-use"
+  mv "$(payload_path "hooks/post-tool-use")" "$HOOKS_DIR/post-tool-use"
+  mv "$(payload_path "hooks/subagent-start")" "$HOOKS_DIR/subagent-start"
+  mv "$(payload_path "hooks/subagent-stop")" "$HOOKS_DIR/subagent-stop"
 }
 
 if [[ ! -f "$AUTH_TOKEN_FILE" ]]; then
@@ -172,12 +204,7 @@ fi
 echo "Downloading agentctl $VERSION for $PLATFORM..."
 
 curl -fsSL "$BASE_URL/SHA256SUMS" -o "$CHECKSUMS_DOWNLOAD"
-curl -fsSL "$BASE_URL/agentctl-$PLATFORM" -o "$(staged_artifact_path "agentctl-$PLATFORM")"
-curl -fsSL "$BASE_URL/agentctl-daemon-$PLATFORM" -o "$(staged_artifact_path "agentctl-daemon-$PLATFORM")"
-curl -fsSL "$BASE_URL/pre-tool-use-$PLATFORM" -o "$(staged_artifact_path "pre-tool-use-$PLATFORM")"
-curl -fsSL "$BASE_URL/post-tool-use-$PLATFORM" -o "$(staged_artifact_path "post-tool-use-$PLATFORM")"
-curl -fsSL "$BASE_URL/subagent-start-$PLATFORM" -o "$(staged_artifact_path "subagent-start-$PLATFORM")"
-curl -fsSL "$BASE_URL/subagent-stop-$PLATFORM" -o "$(staged_artifact_path "subagent-stop-$PLATFORM")"
+curl -fsSL "$BASE_URL/$ARCHIVE" -o "$(staged_artifact_path "$ARCHIVE")"
 
 verify_downloads
 install_downloads

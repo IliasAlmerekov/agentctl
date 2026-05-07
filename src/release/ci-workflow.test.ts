@@ -33,15 +33,17 @@ describe("CI workflow", () => {
       );
     }
 
-    for (const fileName of [
-      "agentctl-linux-x64",
-      "agentctl-daemon-linux-x64",
-      "pre-tool-use-linux-x64",
-      "post-tool-use-linux-x64",
-      "subagent-start-linux-x64",
-      "subagent-stop-linux-x64",
+    for (const path of [
+      "./agentctl",
+      "./agentctl-daemon",
+      "./hooks/pre-tool-use",
+      "./hooks/post-tool-use",
+      "./hooks/subagent-start",
+      "./hooks/subagent-stop",
     ]) {
-      expect(workflow).toContain(`test -x dist/${fileName}`);
+      expect(workflow).toContain(
+        `tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\\${path}$'`,
+      );
     }
   });
 });

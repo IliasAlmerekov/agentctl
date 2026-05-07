@@ -17,7 +17,7 @@ describe("primary docs current behavior", () => {
         doc,
         `${path} should say checksums gate install, not just chmod`,
       ).toContain(
-        "verifies `SHA256SUMS` before installing or making downloaded binaries executable",
+        "verifies `SHA256SUMS` before extracting or installing downloaded binaries",
       );
       expect(doc, `${path} should mention auth token creation`).toContain(
         "`~/.agentctl/auth-token`",

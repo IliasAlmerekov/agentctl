@@ -4,7 +4,6 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   CHECKSUMS_FILE_NAME,
-  RELEASE_BINARIES,
   RELEASE_PLATFORMS,
   getReleaseArtifacts,
   writeChecksumManifest,
@@ -20,24 +19,20 @@ describe("release artifact manifest", () => {
     ]);
   });
 
-  test("emits every installer artifact for every platform", () => {
+  test("emits one downloadable archive for every platform", () => {
     const artifacts = getReleaseArtifacts();
 
-    expect(artifacts).toHaveLength(
-      RELEASE_BINARIES.length * RELEASE_PLATFORMS.length,
-    );
+    expect(artifacts).toHaveLength(RELEASE_PLATFORMS.length);
+    expect(artifacts.map((artifact) => artifact.outfile)).toEqual([
+      "dist/agentctl-darwin-arm64.tar.gz",
+      "dist/agentctl-darwin-x64.tar.gz",
+      "dist/agentctl-linux-x64.tar.gz",
+    ]);
     expect(
       artifacts
         .filter((artifact) => artifact.platform.name === "linux-x64")
         .map((artifact) => artifact.outfile),
-    ).toEqual([
-      "dist/agentctl-linux-x64",
-      "dist/agentctl-daemon-linux-x64",
-      "dist/pre-tool-use-linux-x64",
-      "dist/post-tool-use-linux-x64",
-      "dist/subagent-start-linux-x64",
-      "dist/subagent-stop-linux-x64",
-    ]);
+    ).toEqual(["dist/agentctl-linux-x64.tar.gz"]);
   });
 
   test("uses Bun compile targets for each supported platform", () => {
@@ -48,8 +43,16 @@ describe("release artifact manifest", () => {
     ]);
   });
 
-  test("bundles Ink's optional devtools peer for CLI release builds", () => {
-    const cliArtifacts = getReleaseArtifacts().filter((artifact) => {
+  test("bundles Ink's optional devtools peer for CLI release builds", async () => {
+    const releaseModule = await import("./build-artifacts.ts");
+    const getReleaseCompiledBinaries =
+      "getReleaseCompiledBinaries" in releaseModule
+        ? releaseModule.getReleaseCompiledBinaries
+        : undefined;
+
+    expect(typeof getReleaseCompiledBinaries).toBe("function");
+
+    const cliArtifacts = (getReleaseCompiledBinaries?.() ?? []).filter((artifact) => {
       return artifact.binary.name === "agentctl";
     });
 
@@ -64,8 +67,8 @@ describe("release artifact manifest", () => {
 describe("release checksum manifest", () => {
   test("writes SHA-256 checksums for release artifact file names", () => {
     const dir = mkdtempSync(join(tmpdir(), "agentctl-release-"));
-    const first = join(dir, "agentctl-linux-x64");
-    const second = join(dir, "agentctl-daemon-linux-x64");
+    const first = join(dir, "agentctl-linux-x64.tar.gz");
+    const second = join(dir, "agentctl-darwin-arm64.tar.gz");
     const checksumFile = join(dir, CHECKSUMS_FILE_NAME);
     writeFileSync(first, "first artifact");
     writeFileSync(second, "second artifact");
@@ -78,13 +81,13 @@ describe("release checksum manifest", () => {
     const checksums = writeChecksumManifest(artifacts, checksumFile);
 
     expect(checksums.map((checksum) => checksum.fileName)).toEqual([
-      "agentctl-linux-x64",
-      "agentctl-daemon-linux-x64",
+      "agentctl-linux-x64.tar.gz",
+      "agentctl-darwin-arm64.tar.gz",
     ]);
     expect(readFileSync(checksumFile, "utf8")).toBe(
       [
-        "69f6245a92f0c902e45cfd6e99297cad3e536598237b6ef3d04fbb59c8a3b095  agentctl-linux-x64",
-        "60c48ddce35530a43716c40331da2e737fca5f9b2468c01396726ab7d4f351b2  agentctl-daemon-linux-x64",
+        "69f6245a92f0c902e45cfd6e99297cad3e536598237b6ef3d04fbb59c8a3b095  agentctl-linux-x64.tar.gz",
+        "60c48ddce35530a43716c40331da2e737fca5f9b2468c01396726ab7d4f351b2  agentctl-darwin-arm64.tar.gz",
         "",
       ].join("\n"),
     );
