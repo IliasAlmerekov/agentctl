@@ -71,6 +71,22 @@ function createFakeReleaseArchive(
   return archivePath;
 }
 
+function writeArchiveChecksum(distDir: string, archivePath: string): void {
+  const archiveName = "agentctl-linux-x64.tar.gz";
+  const archive = readFileSync(archivePath);
+  writeFileSync(
+    join(distDir, "SHA256SUMS"),
+    `${createHash("sha256").update(archive).digest("hex")}  ${archiveName}\n`,
+  );
+}
+
+function currentAgentctlCliScript(): string {
+  return `#!/usr/bin/env bash
+set -euo pipefail
+exec ${process.execPath} run ${join(process.cwd(), "src/cli/index.ts")} "$@"
+`;
+}
+
 describe("install.sh checksum verification", () => {
   test("downloads release artifacts from the real GitHub repository", () => {
     expect(INSTALL_SCRIPT).toContain('REPO="IliasAlmerekov/agentctl"');
@@ -250,6 +266,122 @@ echo "fake agentctl"
     expect(stdout).toContain("Skipping daemon registration");
     expect(readFileSync(join(homeDir, ".claude", "settings.json"), "utf8")).toContain(
       `${homeDir}/.agentctl/bin/hooks/pre-tool-use`,
+    );
+  });
+});
+
+describe("install.sh upgrade and reinstall", () => {
+  test("reinstalls idempotently over existing token, stale hooks, and systemd registration", () => {
+    const distDir = mkdtempSync(join(tmpdir(), "agentctl-upgrade-dist-"));
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-upgrade-home-"));
+    const fakeBinDir = mkdtempSync(join(tmpdir(), "agentctl-upgrade-bin-"));
+    const authTokenFile = join(homeDir, ".agentctl", "auth-token");
+    const settingsPath = join(homeDir, ".claude", "settings.json");
+    const hooksDir = join(homeDir, ".agentctl", "bin", "hooks");
+    const staleHooksDir = join(homeDir, "previous", ".agentctl", "bin", "hooks");
+    const servicePath = join(
+      homeDir,
+      ".config",
+      "systemd",
+      "user",
+      "agentctl-daemon.service",
+    );
+    const systemctlLog = join(homeDir, "systemctl.log");
+    const archivePath = createFakeReleaseArchive(distDir, "linux-x64", {
+      agentctl: currentAgentctlCliScript(),
+      "agentctl-daemon": "#!/usr/bin/env bash\necho agentctl-daemon\n",
+      "hooks/pre-tool-use": "#!/usr/bin/env bash\necho pre-tool-use\n",
+      "hooks/post-tool-use": "#!/usr/bin/env bash\necho post-tool-use\n",
+      "hooks/subagent-start": "#!/usr/bin/env bash\necho subagent-start\n",
+      "hooks/subagent-stop": "#!/usr/bin/env bash\necho subagent-stop\n",
+    });
+    writeArchiveChecksum(distDir, archivePath);
+
+    mkdirSync(dirname(authTokenFile), { recursive: true });
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    mkdirSync(dirname(servicePath), { recursive: true });
+    writeFileSync(authTokenFile, "stable-existing-token\n");
+    writeFileSync(servicePath, "[Service]\nExecStart=/stale/agentctl-daemon\n");
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(staleHooksDir, "pre-tool-use"),
+                },
+                {
+                  type: "command",
+                  command: "/opt/custom/pre-tool-use",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+
+    const fakeSystemctl = join(fakeBinDir, "systemctl");
+    writeFileSync(
+      fakeSystemctl,
+      `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> ${JSON.stringify(systemctlLog)}
+if [[ "$*" == "--user status" ]]; then
+  exit 0
+fi
+exit 0
+`,
+    );
+    chmodSync(fakeSystemctl, 0o755);
+
+    const runInstall = () =>
+      Bun.spawnSync({
+        cmd: ["bash", "install.sh"],
+        env: {
+          ...process.env,
+          HOME: homeDir,
+          PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
+          AGENTCTL_BASE_URL: `file://${distDir}`,
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+
+    for (const result of [runInstall(), runInstall()]) {
+      const stderr = new TextDecoder().decode(result.stderr);
+      expect(result.success, stderr).toBe(true);
+    }
+
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Settings;
+    expect(readFileSync(authTokenFile, "utf8")).toBe("stable-existing-token\n");
+    expect(hookCommands(settings, "PreToolUse")).toContain(
+      "/opt/custom/pre-tool-use",
+    );
+
+    for (const [eventName, hookName] of Object.entries(HOOKS) as Array<
+      [HookEvent, string]
+    >) {
+      const canonicalCommand = join(hooksDir, hookName);
+      const commands = hookCommands(settings, eventName);
+      expect(commands.filter((command) => command === canonicalCommand)).toHaveLength(
+        1,
+      );
+      expect(commands.filter((command) => command.startsWith(staleHooksDir))).toEqual(
+        [],
+      );
+    }
+
+    expect(readFileSync(servicePath, "utf8")).toContain(
+      `ExecStart=${homeDir}/.agentctl/bin/agentctl-daemon`,
+    );
+    expect(readFileSync(servicePath, "utf8")).not.toContain("/stale/");
+    expect(readFileSync(systemctlLog, "utf8").match(/--user enable --now/g)).toHaveLength(
+      2,
     );
   });
 });

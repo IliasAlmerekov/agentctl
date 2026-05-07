@@ -139,12 +139,12 @@ rtk proxy du -ch dist/*linux* dist/SHA256SUMS
 
 ### 8. Add upgrade/reinstall coverage
 
-- [ ] Test install over an existing install with the same token.
-- [ ] Test install over stale hook paths.
-- [ ] Test install over an existing daemon registration.
-- [ ] Test upgrade preserves `~/.agentctl/auth-token`.
-- [ ] Test upgrade does not duplicate hook entries.
-- [ ] Document the supported upgrade path.
+- [x] Test install over an existing install with the same token.
+- [x] Test install over stale hook paths.
+- [x] Test install over an existing daemon registration.
+- [x] Test upgrade preserves `~/.agentctl/auth-token`.
+- [x] Test upgrade does not duplicate hook entries.
+- [x] Document the supported upgrade path.
 
 Acceptance:
 

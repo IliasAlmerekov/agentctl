@@ -50,6 +50,14 @@ bun test
 
 If `agentctl` is not found after install, restart the shell or source the rc file that `install.sh` updated.
 
+## Upgrade / reinstall
+
+Re-running the installer is the supported upgrade path for the beta. It downloads the selected release archive again, verifies `SHA256SUMS`, replaces the installed CLI, daemon, and hook binaries, then patches Claude settings back to the current hook paths.
+
+The reinstall path preserves `~/.agentctl/auth-token`, so existing local CLI, TUI, and hook authentication keep using the same token. It also repairs stale agentctl hook commands and does not duplicate hook entries when the installer is run more than once. Unrelated hook entries in `~/.claude/settings.json` are preserved.
+
+If a daemon registration already exists, the installer rewrites the launchd plist, `systemd --user` service, or pm2 entry for the current `~/.agentctl/bin/agentctl-daemon` path.
+
 ## Stale DB state
 
 Runtime state lives in `~/.agentctl/agents.db`. On daemon startup, previously `running` sessions are reconciled to `stale` because the new daemon cannot prove those agents are still active.
