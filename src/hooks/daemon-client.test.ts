@@ -84,4 +84,39 @@ describe("sendHookRequest", () => {
     expect(result).toBeNull();
     expect(jsonParsed).toBe(false);
   });
+
+  test("fails open when the daemon request cannot connect", async () => {
+    const result = await sendHookRequest<{ block: boolean }>(
+      "/hook/pre",
+      { session_id: "agent-a" },
+      {
+        readToken: () => "test-token",
+        fetchImpl: async () => {
+          throw new TypeError("fetch failed");
+        },
+      },
+    );
+
+    expect(result).toBeNull();
+  });
+
+  test("fails open when the daemon returns an unreadable response body", async () => {
+    const unreadableResponse = Response.json({ block: false });
+    Object.defineProperty(unreadableResponse, "json", {
+      value: async () => {
+        throw new Error("invalid daemon response");
+      },
+    });
+
+    const result = await sendHookRequest<{ block: boolean }>(
+      "/hook/pre",
+      { session_id: "agent-a" },
+      {
+        readToken: () => "test-token",
+        fetchImpl: async () => unreadableResponse,
+      },
+    );
+
+    expect(result).toBeNull();
+  });
 });
