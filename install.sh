@@ -37,6 +37,29 @@ should_skip_daemon_registration() {
   [[ "$SKIP_DAEMON_REGISTRATION" == "1" || "$SKIP_DAEMON_REGISTRATION" == "true" || "$SKIP_DAEMON_REGISTRATION" == "yes" ]]
 }
 
+preflight_requirements() {
+  local missing=0
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "Missing required command: curl" >&2
+    missing=1
+  fi
+
+  if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+    echo "Missing required checksum command: sha256sum or shasum" >&2
+    missing=1
+  fi
+
+  if ! command -v openssl >/dev/null 2>&1 && ! command -v od >/dev/null 2>&1; then
+    echo "Missing required token entropy command: openssl or od" >&2
+    missing=1
+  fi
+
+  if [[ "$missing" -ne 0 ]]; then
+    exit 1
+  fi
+}
+
 if is_dry_run; then
   echo "Dry run: would install agentctl $VERSION for $PLATFORM"
   echo "Dry run: would create $HOOKS_DIR"
@@ -48,6 +71,8 @@ if is_dry_run; then
   echo "Dry run: would register daemon for $OS"
   exit 0
 fi
+
+preflight_requirements
 
 mkdir -p "$HOOKS_DIR"
 DOWNLOAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentctl-install.XXXXXX")"
@@ -180,79 +205,7 @@ if [[ ! -f "$CLAUDE_SETTINGS" ]]; then
   echo '{}' > "$CLAUDE_SETTINGS"
 fi
 
-# Use node/bun to do a non-destructive merge of hooks
-bun -e "
-const fs = require('fs');
-const path = '$CLAUDE_SETTINGS';
-const hooksDir = '$HOOKS_DIR';
-const settings = JSON.parse(fs.readFileSync(path, 'utf8'));
-settings.hooks ??= {};
-
-const hookEvents = {
-  PreToolUse: 'pre-tool-use',
-  PostToolUse: 'post-tool-use',
-  SubagentStart: 'subagent-start',
-  SubagentStop: 'subagent-stop'
-};
-
-const managedHookNames = new Set(Object.values(hookEvents));
-const hookCommand = (name) => hooksDir + '/' + name;
-const isRecord = (value) => typeof value === 'object' && value !== null;
-
-const isManagedAgentctlHookCommand = (command) => {
-  if (typeof command !== 'string') return false;
-
-  const name = command.split('/').pop();
-  if (!managedHookNames.has(name)) return false;
-
-  return command.startsWith(hooksDir + '/') || command.includes('/.agentctl/bin/hooks/');
-};
-
-const repairExistingHookEntries = (entries) => {
-  if (!Array.isArray(entries)) {
-    return { entries: [], repaired: 0 };
-  }
-
-  let repaired = 0;
-  const repairedEntries = entries
-    .map((entry) => {
-      if (!isRecord(entry) || !Array.isArray(entry.hooks)) return entry;
-
-      const keptHooks = entry.hooks.filter((hook) => {
-        if (!isRecord(hook)) return true;
-
-        const remove = isManagedAgentctlHookCommand(hook.command);
-        if (remove) repaired += 1;
-        return !remove;
-      });
-
-      return { ...entry, hooks: keptHooks };
-    })
-    .filter((entry) => {
-      return !isRecord(entry) || !Array.isArray(entry.hooks) || entry.hooks.length > 0;
-    });
-
-  return { entries: repairedEntries, repaired };
-};
-
-let repairedHooks = 0;
-
-for (const [eventName, hookName] of Object.entries(hookEvents)) {
-  const repaired = repairExistingHookEntries(settings.hooks[eventName]);
-  settings.hooks[eventName] = repaired.entries;
-  repairedHooks += repaired.repaired;
-  settings.hooks[eventName].push({
-    matcher: '',
-    hooks: [{ type: 'command', command: hookCommand(hookName) }]
-  });
-}
-
-fs.writeFileSync(path, JSON.stringify(settings, null, 2) + '\n');
-if (repairedHooks > 0) {
-  console.log('Repaired ' + repairedHooks + ' existing agentctl hook entries');
-}
-console.log('Patched ~/.claude/settings.json');
-"
+"$BIN_DIR/agentctl" install-hooks --settings "$CLAUDE_SETTINGS" --hooks-dir "$HOOKS_DIR"
 
 # ─── 5. Register daemon as background process ─────────────────────────────────
 if should_skip_daemon_registration; then

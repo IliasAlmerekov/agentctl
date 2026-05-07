@@ -16,6 +16,7 @@ describe("troubleshooting documentation", () => {
       "`systemd --user`",
       "pm2",
       "Bun/PATH",
+      "Installed release binaries and `install.sh` do not require Bun",
       "`~/.agentctl/bin`",
       "`~/.bun/bin`",
       "stale",

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "crypto";
-import { createRequire } from "module";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -11,9 +10,9 @@ import {
   readFileSync,
   writeFileSync,
 } from "fs";
+import { installAgentctlHooksInSettings } from "../cli/commands/install-hooks.ts";
 
 const INSTALL_SCRIPT = readFileSync("install.sh", "utf8");
-const requireForInlineScript = createRequire(import.meta.url);
 
 const HOOKS = {
   PreToolUse: "pre-tool-use",
@@ -27,34 +26,11 @@ type Settings = {
   hooks?: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
 };
 
-function extractSettingsPatchScript(settingsPath: string, hooksDir: string): string {
-  const startMarker = 'bun -e "\n';
-  const start = INSTALL_SCRIPT.indexOf(startMarker);
-  const end = INSTALL_SCRIPT.indexOf('\n"', start + startMarker.length);
-
-  if (start === -1 || end === -1) {
-    throw new Error("Could not find install settings patch script");
-  }
-
-  return INSTALL_SCRIPT.slice(start + startMarker.length, end)
-    .replace(
-      "const path = '$CLAUDE_SETTINGS';",
-      `const path = ${JSON.stringify(settingsPath)};`,
-    )
-    .replace(
-      "const hooksDir = '$HOOKS_DIR';",
-      `const hooksDir = ${JSON.stringify(hooksDir)};`,
-    )
-    .replaceAll(
-      "'$HOOKS_DIR/' + name",
-      `${JSON.stringify(`${hooksDir}/`)} + name`,
-    );
-}
-
 function runSettingsPatchScript(settingsPath: string, hooksDir: string): Settings {
-  const script = extractSettingsPatchScript(settingsPath, hooksDir);
-  new Function("require", script)(requireForInlineScript);
-  return JSON.parse(readFileSync(settingsPath, "utf8")) as Settings;
+  const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Settings;
+  const result = installAgentctlHooksInSettings(settings, hooksDir);
+  writeFileSync(settingsPath, `${JSON.stringify(result.settings, null, 2)}\n`);
+  return result.settings as Settings;
 }
 
 function hookCommands(settings: Settings, event: HookEvent): string[] {
@@ -171,6 +147,100 @@ fi
     expect(result.success).toBe(false);
     expect(stderr).toContain("Checksum mismatch for agentctl-linux-x64");
     expect(readFileSync(installedCli, "utf8")).toBe("known-good binary");
+  });
+});
+
+describe("install.sh runtime requirements", () => {
+  test("preflights required tools before mutating the install directory", () => {
+    expect(INSTALL_SCRIPT).toContain("preflight_requirements()");
+    expect(INSTALL_SCRIPT).toContain("command -v curl");
+    expect(INSTALL_SCRIPT).toContain("command -v sha256sum");
+    expect(INSTALL_SCRIPT).toContain("command -v shasum");
+    expect(INSTALL_SCRIPT).toContain("command -v openssl");
+    expect(INSTALL_SCRIPT).toContain("command -v od");
+    expect(INSTALL_SCRIPT).toContain("\npreflight_requirements\n\nmkdir -p \"$HOOKS_DIR\"");
+  });
+
+  test("delegates settings patching to the compiled CLI instead of Bun", () => {
+    expect(INSTALL_SCRIPT).not.toContain("bun -e");
+    expect(INSTALL_SCRIPT).toContain(
+      '"$BIN_DIR/agentctl" install-hooks --settings "$CLAUDE_SETTINGS" --hooks-dir "$HOOKS_DIR"',
+    );
+  });
+
+  test("runs from release artifacts with a clean user PATH that has no Bun", () => {
+    const distDir = mkdtempSync(join(tmpdir(), "agentctl-dist-"));
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-no-bun-home-"));
+    const artifacts = [
+      "agentctl-linux-x64",
+      "agentctl-daemon-linux-x64",
+      "pre-tool-use-linux-x64",
+      "post-tool-use-linux-x64",
+      "subagent-start-linux-x64",
+      "subagent-stop-linux-x64",
+    ];
+    const checksumLines: string[] = [];
+
+    for (const artifact of artifacts) {
+      const artifactPath = join(distDir, artifact);
+      const content = artifact.startsWith("agentctl-linux")
+        ? `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "install-hooks" ]]; then
+  settings=""
+  hooks_dir=""
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --settings)
+        shift
+        settings="$1"
+        ;;
+      --hooks-dir)
+        shift
+        hooks_dir="$1"
+        ;;
+    esac
+    shift
+  done
+  mkdir -p "$(dirname "$settings")"
+  printf '{"hooks":{"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"%s/pre-tool-use"}]}]}}\\n' "$hooks_dir" > "$settings"
+  exit 0
+fi
+echo "fake agentctl"
+`
+        : `#!/usr/bin/env bash
+echo "${artifact}"
+`;
+      writeFileSync(artifactPath, content);
+      chmodSync(artifactPath, 0o755);
+      checksumLines.push(
+        `${createHash("sha256").update(content).digest("hex")}  ${artifact}`,
+      );
+    }
+
+    writeFileSync(join(distDir, "SHA256SUMS"), `${checksumLines.join("\n")}\n`);
+
+    const result = Bun.spawnSync({
+      cmd: ["bash", "install.sh"],
+      env: {
+        HOME: homeDir,
+        PATH: "/usr/bin:/bin",
+        AGENTCTL_BASE_URL: `file://${distDir}`,
+        AGENTCTL_SKIP_DAEMON_REGISTRATION: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const stdout = new TextDecoder().decode(result.stdout);
+    const stderr = new TextDecoder().decode(result.stderr);
+
+    expect(result.success, stderr).toBe(true);
+    expect(stdout).toContain("Skipping daemon registration");
+    expect(readFileSync(join(homeDir, ".claude", "settings.json"), "utf8")).toContain(
+      `${homeDir}/.agentctl/bin/hooks/pre-tool-use`,
+    );
   });
 });
 

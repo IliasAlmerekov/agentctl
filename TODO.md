@@ -69,11 +69,11 @@ rtk proxy curl -fsSL https://api.github.com/repos/IliasAlmerekov/agentctl/releas
 
 Current risk: release binaries are compiled, but `install.sh` currently calls `bun -e` while patching `~/.claude/settings.json`. A clean machine without Bun fails during install.
 
-- [ ] Replace the installer `bun -e` settings patch with a runtime available on supported machines, or move settings patching into the compiled `agentctl` binary.
-- [ ] Add an installer preflight that fails before mutating files if a required runtime is missing.
-- [ ] Prefer no Bun requirement for installed users.
-- [ ] Update `docs/troubleshooting.md` so Bun is clearly development-only unless a deliberate product decision says otherwise.
-- [ ] Add a regression test that runs install with `PATH=/usr/bin:/bin`.
+- [x] Replace the installer `bun -e` settings patch with a runtime available on supported machines, or move settings patching into the compiled `agentctl` binary.
+- [x] Add an installer preflight that fails before mutating files if a required runtime is missing.
+- [x] Prefer no Bun requirement for installed users.
+- [x] Update `docs/troubleshooting.md` so Bun is clearly development-only unless a deliberate product decision says otherwise.
+- [x] Add a regression test that runs install with `PATH=/usr/bin:/bin`.
 
 Acceptance:
 

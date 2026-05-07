@@ -32,7 +32,7 @@ If none of launchd, `systemd --user`, or pm2 is available, start the daemon manu
 
 ## Bun/PATH
 
-Installed release binaries do not require Bun at runtime, but development commands and the installer settings patch step do require Bun on `PATH`.
+Installed release binaries and `install.sh` do not require Bun. The installer downloads compiled binaries, verifies checksums, and uses the compiled `agentctl` CLI to patch Claude settings.
 
 For normal installed usage, make sure the CLI directory `~/.agentctl/bin` is visible:
 
@@ -41,7 +41,7 @@ export PATH="$HOME/.agentctl/bin:$PATH"
 agentctl status
 ```
 
-For local development, Bun usually needs the `~/.bun/bin` PATH entry:
+For local development only, Bun usually needs the `~/.bun/bin` PATH entry:
 
 ```bash
 export PATH="$HOME/.bun/bin:$PATH"

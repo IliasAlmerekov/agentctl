@@ -5,6 +5,7 @@ import { cmdKill } from "./commands/kill.ts";
 import { cmdAgents } from "./commands/agents.ts";
 import { cmdWatch } from "./commands/watch.tsx";
 import { cmdUninstall } from "./commands/uninstall.ts";
+import { cmdInstallHooks } from "./commands/install-hooks.ts";
 import { apiStatus } from "./api.ts";
 
 const program = new Command();
@@ -53,6 +54,15 @@ program
       process.exit(1);
     }
   });
+
+program
+  .command("install-hooks")
+  .description("Install agentctl hook entries into Claude settings")
+  .requiredOption("--settings <path>", "Claude settings.json path")
+  .requiredOption("--hooks-dir <path>", "agentctl hooks directory")
+  .action((opts: { settings?: string; hooksDir?: string }) =>
+    cmdInstallHooks(opts),
+  );
 
 program
   .command("uninstall")
