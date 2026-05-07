@@ -1,0 +1,14 @@
+{
+  "session_id": "fixture-session-001",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rtk env PATH=\"$HOME/.bun/bin:$PATH\" bun test",
+    "description": "Run the agentctl test suite"
+  },
+  "tool_response": {
+    "exit_code": 0,
+    "stdout": "74 pass\n0 fail\n",
+    "stderr": ""
+  },
+  "tokens_used": 128
+}

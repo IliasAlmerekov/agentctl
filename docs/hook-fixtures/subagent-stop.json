@@ -1,0 +1,5 @@
+{
+  "session_id": "fixture-child-session-001",
+  "parent_session_id": "fixture-parent-session-001",
+  "description": "Review hook contract hardening"
+}
