@@ -201,7 +201,7 @@ Before tagging a beta release:
 - [x] Restart reconciliation is implemented.
 - [x] Installer uses the real repository and verifies release artifacts.
 - [x] CI builds all supported binaries.
-- [ ] README and AGENTCTL docs match actual behavior.
+- [x] README and AGENTCTL docs match actual behavior.
 - [ ] A fresh install smoke test has been run on at least one supported macOS target and one supported Linux target.
 
 ## Later, Not For Production Gate
