@@ -63,6 +63,8 @@ Claude Code runs a hook script on every tool call. The hook calls the local daem
 
 If the daemon is unreachable, hooks exit `0` — Claude is never blocked by agentctl being down.
 
+The exact `exit(2)` blocking contract and limitations are documented in `docs/hook-contract.md`.
+
 ## Local security model
 
 agentctl is a single-user local control plane. The daemon binds only to IPv4 loopback (`127.0.0.1:47823`) and requires the local token from `~/.agentctl/auth-token` for CLI, TUI WebSocket, and hook requests.

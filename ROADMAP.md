@@ -151,7 +151,7 @@ Tasks:
 - [x] Decide whether malformed hook input should fail-open or emit a safe diagnostic. Decision: fail open silently; hook diagnostics must not risk polluting Claude Code output or blocking the agent.
 - [x] Measure compiled hook latency under normal and daemon-unavailable paths. Evidence: `bun run measure:hooks` with 3 runs measured local Linux p95 at ~180-198 ms for normal stub-daemon responses and ~30-40 ms when the daemon is unavailable.
 - [x] Add manual hook fixtures for `PreToolUse`, `PostToolUse`, `SubagentStart`, and `SubagentStop`.
-- [ ] Document the `exit(2)` blocking contract and its limitations.
+- [x] Document the `exit(2)` blocking contract and its limitations.
 
 Verification:
 

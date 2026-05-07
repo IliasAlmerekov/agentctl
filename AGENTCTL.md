@@ -81,6 +81,8 @@ Agent about to call Bash("find /node_modules...")
 
 This is not a hack — it is the documented behavior of `exit(2)` in Claude Code hooks. The hook author is the operator. The operator can correct the agent.
 
+The exact `exit(2)` blocking contract and limitations are documented in `docs/hook-contract.md`.
+
 ### Loop detection
 
 The daemon tracks every tool call: session ID, tool name, argument hash, timestamp. On each PreToolUse, it checks: has this session called this tool with these arguments 5+ times in the last 2 minutes? If yes — block with a human-readable explanation.
