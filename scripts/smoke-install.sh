@@ -38,6 +38,14 @@ elif [[ "$SMOKE_SOURCE" == "public" ]]; then
   unset AGENTCTL_BASE_URL
   curl -fsSL "$PUBLIC_INSTALL_URL" | bash
 
+elif [[ "$SMOKE_SOURCE" == "release-assets" ]]; then
+  if [[ -z "${AGENTCTL_BASE_URL:-}" ]]; then
+    echo "AGENTCTL_BASE_URL is required for release-assets install smoke" >&2
+    exit 1
+  fi
+
+  bash "$ROOT/install.sh"
+
 else
   echo "Unknown AGENTCTL_SMOKE_INSTALL_SOURCE: $SMOKE_SOURCE" >&2
   exit 1

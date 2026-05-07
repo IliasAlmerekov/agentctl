@@ -61,7 +61,17 @@ describe("install smoke workflow", () => {
     expect(script).toContain('! grep -q "/.agentctl/bin/hooks/" "$HOME/.claude/settings.json"');
   });
 
-  test("release workflow smokes the published release URL on Linux and macOS", () => {
+  test("smoke script can install from predownloaded private release assets", () => {
+    const script = readFileSync(INSTALL_SMOKE_SCRIPT, "utf8");
+
+    expect(script).toContain('"release-assets"');
+    expect(script).toContain(
+      "AGENTCTL_BASE_URL is required for release-assets install smoke",
+    );
+    expect(script).toContain('bash "$ROOT/install.sh"');
+  });
+
+  test("release workflow smokes public URLs publicly and release assets privately", () => {
     expect(existsSync(RELEASE_WORKFLOW)).toBe(true);
     const workflow = readFileSync(RELEASE_WORKFLOW, "utf8");
 
@@ -71,6 +81,12 @@ describe("install smoke workflow", () => {
     expect(workflow).toContain("macos-latest");
     expect(workflow).toContain("uses: actions/checkout@v6");
     expect(workflow).toContain("AGENTCTL_VERSION: ${{ github.ref_name }}");
+    expect(workflow).toContain("github.event.repository.private");
+    expect(workflow).toContain("gh release download");
+    expect(workflow).toContain("AGENTCTL_SMOKE_INSTALL_SOURCE: release-assets");
+    expect(workflow).toContain(
+      "AGENTCTL_BASE_URL: file://${{ runner.temp }}/agentctl-release-assets",
+    );
     expect(workflow).toContain("AGENTCTL_SMOKE_INSTALL_SOURCE: public");
     expect(workflow).toContain("bash scripts/smoke-install.sh");
   });

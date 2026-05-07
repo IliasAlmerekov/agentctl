@@ -40,6 +40,7 @@ Current risk: local build artifacts exist, but public install depends on GitHub 
   - `agentctl-linux-x64.tar.gz`
   - `SHA256SUMS`
 - [x] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
+- [x] Allow private-repo release smoke to verify downloaded release assets before the public raw URL exists.
 - [ ] Create the first beta tag, for example `v0.1.0-beta.1`.
 - [ ] Verify `AGENTCTL_VERSION=v0.1.0-beta.1` install works.
 
