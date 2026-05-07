@@ -10,6 +10,7 @@ describe("CI workflow", () => {
 
     const workflow = readFileSync(CI_WORKFLOW, "utf8");
 
+    expect(workflow).toContain("FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true");
     expect(workflow).toContain("oven-sh/setup-bun");
     expect(workflow).toContain("bun-version: 1.3.13");
     expect(workflow).toContain("bun install --frozen-lockfile");
