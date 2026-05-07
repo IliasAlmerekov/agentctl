@@ -11,6 +11,7 @@
     "build:release": "bun run src/release/build-artifacts.ts",
     "build": "bun run build:release",
     "measure:hooks": "bun run scripts/measure-hook-latency.ts",
+    "smoke:install": "bash scripts/smoke-install.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

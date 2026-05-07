@@ -203,6 +203,8 @@ Before tagging a beta release:
 - [x] CI builds all supported binaries.
 - [x] README and AGENTCTL docs match actual behavior.
 - [ ] A fresh install smoke test has been run on at least one supported macOS target and one supported Linux target.
+  - Linux x64: passed on 2026-05-07 with `rtk env PATH="$HOME/.bun/bin:$PATH" bun run smoke:install`.
+  - macOS: pending run on a supported macOS target via `.github/workflows/install-smoke.yml` or a local macOS machine.
 
 ## Later, Not For Production Gate
 

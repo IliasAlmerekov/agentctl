@@ -69,7 +69,7 @@ describe("install.sh checksum verification", () => {
   test("downloads release artifacts from the real GitHub repository", () => {
     expect(INSTALL_SCRIPT).toContain('REPO="IliasAlmerekov/agentctl"');
     expect(INSTALL_SCRIPT).toContain(
-      'BASE_URL="https://github.com/$REPO/releases/${VERSION}/download"',
+      'BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"',
     );
     expect(INSTALL_SCRIPT).not.toContain("your-org");
     expect(INSTALL_SCRIPT).not.toContain("OWNER/REPO");

@@ -25,11 +25,16 @@ esac
 
 # ─── 2. Download binaries ─────────────────────────────────────────────────────
 VERSION="${AGENTCTL_VERSION:-latest}"
-BASE_URL="https://github.com/$REPO/releases/${VERSION}/download"
+BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"
 DRY_RUN="${AGENTCTL_INSTALL_DRY_RUN:-0}"
+SKIP_DAEMON_REGISTRATION="${AGENTCTL_SKIP_DAEMON_REGISTRATION:-0}"
 
 is_dry_run() {
   [[ "$DRY_RUN" == "1" || "$DRY_RUN" == "true" || "$DRY_RUN" == "yes" ]]
+}
+
+should_skip_daemon_registration() {
+  [[ "$SKIP_DAEMON_REGISTRATION" == "1" || "$SKIP_DAEMON_REGISTRATION" == "true" || "$SKIP_DAEMON_REGISTRATION" == "yes" ]]
 }
 
 if is_dry_run; then
@@ -250,7 +255,10 @@ console.log('Patched ~/.claude/settings.json');
 "
 
 # ─── 5. Register daemon as background process ─────────────────────────────────
-if [[ "$OS" == "Darwin" ]]; then
+if should_skip_daemon_registration; then
+  echo "Skipping daemon registration"
+
+elif [[ "$OS" == "Darwin" ]]; then
   PLIST="$AGENTCTL_HOME/agentctl-daemon.plist"
   cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
