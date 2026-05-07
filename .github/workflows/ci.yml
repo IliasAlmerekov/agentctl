@@ -29,6 +29,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check public install URL
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: bun run check:public-install-url
+
       - name: Test
         run: bun test
 
