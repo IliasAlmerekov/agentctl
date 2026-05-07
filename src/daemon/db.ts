@@ -11,6 +11,12 @@ export interface DaemonBoot {
   heartbeat_at: number;
 }
 
+type PrepareDaemonDatabaseOptions = {
+  bootId?: string;
+  now?: number;
+  retentionMs?: number;
+};
+
 export function initSchema(db: Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS agents (
@@ -84,11 +90,23 @@ export function getSchemaVersion(db: Database): number | null {
   return Number.isInteger(version) ? version : null;
 }
 
-export function reconcileRunningAgents(db: Database): void {
+export function reconcileRunningAgents(db: Database, now = Date.now()): void {
   db.run(
     "UPDATE agents SET status = 'stale', ended_at = ? WHERE status = 'running'",
-    [Date.now()],
+    [now],
   );
+}
+
+export function prepareDaemonDatabase(
+  db: Database,
+  options: PrepareDaemonDatabaseOptions = {},
+): DaemonBoot {
+  const now = options.now ?? Date.now();
+
+  initSchema(db);
+  reconcileRunningAgents(db, now);
+  cleanupOldRuntimeData(db, now, options.retentionMs);
+  return startDaemonRuntime(db, options.bootId, now);
 }
 
 export function startDaemonRuntime(

@@ -6,6 +6,7 @@ import {
   cleanupOldRuntimeData,
   getSchemaVersion,
   initSchema,
+  prepareDaemonDatabase,
   reconcileRunningAgents,
   recordDaemonHeartbeat,
   startDaemonRuntime,
@@ -33,6 +34,73 @@ describe("database schema metadata", () => {
 });
 
 describe("daemon database startup reconciliation", () => {
+  test("prepares persisted runtime state when the daemon starts", () => {
+    const db = createTestDb();
+    const now = 20_000;
+    const old = 10_000;
+
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at, ended_at)
+       VALUES
+       ('running-session', 'running', 1_000, NULL),
+       ('done-session', 'done', 1_000, 2_000),
+       ('killed-session', 'killed', 1_000, 3_000)`,
+    );
+    db.run(
+      `INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at)
+       VALUES ('old-call', 'Bash', 'old-hash', ?)`,
+      [old],
+    );
+    db.run(
+      `INSERT INTO injections (session_id, message, status, created_at, delivered_at)
+       VALUES
+       ('old-delivered', 'old delivered', 'delivered', ?, ?),
+       ('old-pending', 'old pending', 'pending', ?, NULL)`,
+      [old, old, old],
+    );
+
+    const boot = prepareDaemonDatabase(db, {
+      bootId: "restart-boot",
+      now,
+      retentionMs: 1_000,
+    });
+
+    const agents = db
+      .query<{ session_id: string; status: string; ended_at: number | null }, []>(
+        `SELECT session_id, status, ended_at
+         FROM agents
+         ORDER BY session_id`,
+      )
+      .all();
+    const toolCallCount = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
+    const injections = db
+      .query<{ session_id: string; status: string }, []>(
+        "SELECT session_id, status FROM injections ORDER BY session_id",
+      )
+      .all();
+    const recordedBoot = db
+      .query<{ boot_id: string; started_at: number; heartbeat_at: number }, []>(
+        "SELECT boot_id, started_at, heartbeat_at FROM daemon_boots",
+      )
+      .get();
+
+    expect(agents).toEqual([
+      { session_id: "done-session", status: "done", ended_at: 2_000 },
+      { session_id: "killed-session", status: "killed", ended_at: 3_000 },
+      { session_id: "running-session", status: "stale", ended_at: now },
+    ]);
+    expect(toolCallCount?.count).toBe(0);
+    expect(injections).toEqual([{ session_id: "old-pending", status: "pending" }]);
+    expect(boot).toEqual({
+      boot_id: "restart-boot",
+      started_at: now,
+      heartbeat_at: now,
+    });
+    expect(recordedBoot).toEqual(boot);
+  });
+
   test("marks previously running sessions stale when the daemon starts again", () => {
     const db = createTestDb();
     db.run(

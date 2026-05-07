@@ -198,7 +198,7 @@ Before tagging a beta release:
 
 - [x] `inject`, `cap`, and `kill` are covered by tests.
 - [x] Local daemon auth is implemented and documented.
-- [ ] Restart reconciliation is implemented.
+- [x] Restart reconciliation is implemented.
 - [ ] Installer uses the real repository and verifies release artifacts.
 - [ ] CI builds all supported binaries.
 - [ ] README and AGENTCTL docs match actual behavior.
