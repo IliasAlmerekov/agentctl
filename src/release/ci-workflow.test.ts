@@ -17,6 +17,7 @@ describe("CI workflow", () => {
     expect(workflow).toContain("oven-sh/setup-bun");
     expect(workflow).toContain("bun-version: 1.3.13");
     expect(workflow).toContain("bun install --frozen-lockfile");
+    expect(workflow).toContain("bun run check:public-install-url");
     expect(workflow).toContain("bun test");
     expect(workflow).toContain("bun run typecheck");
     expect(workflow).toContain("bun run build");

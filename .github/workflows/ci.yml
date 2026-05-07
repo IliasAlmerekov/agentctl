@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Check public install URL
+        run: bun run check:public-install-url
+
       - name: Test
         run: bun test
 
