@@ -51,6 +51,8 @@ It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.
 
 ## Usage
 
+Implemented commands:
+
 ```bash
 agentctl agents          # List all agents with token usage
 agentctl watch           # Live TUI — agent tree, token bars, loop alerts

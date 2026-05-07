@@ -174,7 +174,7 @@ Goal: make public docs accurate enough for a first beta.
 Tasks:
 
 - [x] Sync README install instructions with the real release pipeline.
-- [ ] Remove or clearly label unimplemented commands.
+- [x] Remove or clearly label unimplemented commands.
 - [ ] Document supported platforms and unsupported platforms.
 - [ ] Add troubleshooting for daemon not running, Bun/PATH issues, stale DB state, and hook config conflicts.
 - [ ] Add a short security note explaining local daemon access and limits.
