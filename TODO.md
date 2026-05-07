@@ -22,6 +22,8 @@ Current risk: the README install command points to `https://raw.githubuserconten
 - [ ] Confirm `README.md` install instructions match the actual default branch.
 - [x] Add a CI or scripted check that fails if the README install URL returns non-200.
 
+Private repo note: CI skips the public raw URL check while the repository is private. The same check remains wired for public `main` pushes and must pass before announcement.
+
 Acceptance:
 
 ```bash

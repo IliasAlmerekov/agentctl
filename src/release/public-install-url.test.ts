@@ -15,7 +15,7 @@ describe("public install URL check", () => {
       `bun run ${SCRIPT}`,
     );
     expect(workflow).toContain(
-      "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+      "if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.repository.private",
     );
     expect(workflow).toContain("bun run check:public-install-url");
   });
