@@ -718,7 +718,7 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 
 `install.sh` does five things:
 
-1. Detect platform (darwin-arm64, darwin-x64, linux-x64)
+1. Detect platform (darwin-arm64, darwin-x64, linux-x64; full matrix in `docs/platforms.md`)
 2. Download pre-compiled binaries from GitHub Releases into `~/.agentctl/bin/`
 3. Add `~/.agentctl/bin` to PATH in `.zshrc` / `.bashrc`
 4. Patch `~/.claude/settings.json` with hook entries (non-destructive merge)
