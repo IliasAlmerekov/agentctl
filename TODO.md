@@ -32,9 +32,9 @@ rtk proxy curl -I -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentct
 
 Current risk: local build artifacts exist, but public install depends on GitHub Releases containing every platform artifact plus `SHA256SUMS`.
 
-- [ ] Add a tag-driven release workflow.
-- [ ] Build release artifacts in CI, not on a local workstation.
-- [ ] Upload these files for every release:
+- [x] Add a tag-driven release workflow.
+- [x] Build release artifacts in CI, not on a local workstation.
+- [x] Upload these files for every release:
   - `agentctl-darwin-arm64`
   - `agentctl-daemon-darwin-arm64`
   - `pre-tool-use-darwin-arm64`
@@ -54,7 +54,7 @@ Current risk: local build artifacts exist, but public install depends on GitHub 
   - `subagent-start-linux-x64`
   - `subagent-stop-linux-x64`
   - `SHA256SUMS`
-- [ ] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
+- [x] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
 - [ ] Create the first beta tag, for example `v0.1.0-beta.1`.
 - [ ] Verify `AGENTCTL_VERSION=v0.1.0-beta.1` install works.
 
