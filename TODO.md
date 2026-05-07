@@ -168,11 +168,11 @@ rtk env PATH="$HOME/.bun/bin:$PATH" bun test src/daemon src/hooks
 
 ### 10. Verify uninstall on every supported platform path
 
-- [ ] Linux systemd user service removal is covered.
-- [ ] macOS launchd plist unload/removal is covered.
-- [ ] pm2 fallback behavior is documented or tested.
-- [ ] Uninstall removes only agentctl-managed Claude hooks.
-- [ ] Uninstall leaves unrelated hooks untouched.
+- [x] Linux systemd user service removal is covered.
+- [x] macOS launchd plist unload/removal is covered.
+- [x] pm2 fallback behavior is documented or tested.
+- [x] Uninstall removes only agentctl-managed Claude hooks.
+- [x] Uninstall leaves unrelated hooks untouched.
 
 Acceptance:
 

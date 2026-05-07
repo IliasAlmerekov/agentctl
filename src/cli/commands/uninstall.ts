@@ -40,19 +40,48 @@ const HOOK_EVENTS = [
 ];
 
 function defaultRunCommand(cmd: string[]): { ok: boolean; error?: string } {
-  const result = Bun.spawnSync({
-    cmd,
-    stdout: "ignore",
-    stderr: "pipe",
-  });
-  return {
-    ok: result.success,
-    error: result.stderr ? new TextDecoder().decode(result.stderr) : undefined,
-  };
+  try {
+    const result = Bun.spawnSync({
+      cmd,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    return {
+      ok: result.success,
+      error: result.stderr ? new TextDecoder().decode(result.stderr) : undefined,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isMissingExecutable(error: unknown): boolean {
+  if (typeof error === "object" && error !== null) {
+    const code = (error as { code?: unknown }).code;
+    if (code === "ENOENT") return true;
+  }
+
+  if (typeof error !== "string") return false;
+  return (
+    error.includes("ENOENT") ||
+    error.includes("Executable not found") ||
+    error.includes("command not found")
+  );
+}
+
+function isMissingAgentctlSystemdUnit(error: unknown): boolean {
+  if (typeof error !== "string") return false;
+  return (
+    error.includes("agentctl-daemon.service") &&
+    error.includes("does not exist")
+  );
 }
 
 function isAgentctlHookCommand(command: unknown, hooksDir: string): boolean {
@@ -103,6 +132,21 @@ function stopDaemon(
 ): boolean {
   const agentctlHome = join(homeDir, ".agentctl");
 
+  function stopPm2(): boolean {
+    let result: ReturnType<RunCommand>;
+    try {
+      result = runCommand(["pm2", "delete", "agentctl-daemon"]);
+    } catch (error) {
+      if (isMissingExecutable(error)) return false;
+      warnings.push(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+
+    if (!result.ok && isMissingExecutable(result.error)) return false;
+    if (!result.ok) warnings.push(result.error ?? "pm2 delete failed");
+    return result.ok;
+  }
+
   if (platform === "darwin") {
     const plist = join(agentctlHome, "agentctl-daemon.plist");
     if (!existsSync(plist)) return false;
@@ -119,7 +163,7 @@ function stopDaemon(
       "user",
       "agentctl-daemon.service",
     );
-    if (!existsSync(servicePath)) return false;
+    if (!existsSync(servicePath)) return stopPm2();
 
     const stopResult = runCommand([
       "systemctl",
@@ -129,7 +173,9 @@ function stopDaemon(
       "agentctl-daemon",
     ]);
     if (!stopResult.ok) {
-      warnings.push(stopResult.error ?? "systemctl disable failed");
+      if (!isMissingAgentctlSystemdUnit(stopResult.error)) {
+        warnings.push(stopResult.error ?? "systemctl disable failed");
+      }
     }
 
     rmSync(servicePath, { force: true });
@@ -141,9 +187,7 @@ function stopDaemon(
     return stopResult.ok && reloadResult.ok;
   }
 
-  const result = runCommand(["pm2", "delete", "agentctl-daemon"]);
-  if (!result.ok) warnings.push(result.error ?? "pm2 delete failed");
-  return result.ok;
+  return stopPm2();
 }
 
 export function uninstallAgentctl(

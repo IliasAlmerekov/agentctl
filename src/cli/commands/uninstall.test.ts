@@ -112,6 +112,7 @@ describe("uninstallAgentctl", () => {
 
     expect(result.hooksRemoved).toBe(1);
     expect(result.homeRemoved).toBe(true);
+    expect(result.serviceStopped).toBe(true);
     expect(existsSync(agentctlHome)).toBe(false);
     expect(commands).toContainEqual([
       "launchctl",
@@ -154,5 +155,74 @@ describe("uninstallAgentctl", () => {
       "agentctl-daemon",
     ]);
     expect(commands).toContainEqual(["systemctl", "--user", "daemon-reload"]);
+  });
+
+  test("does not warn when a stale Linux service file is not registered", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-home-"));
+    const agentctlHome = join(homeDir, ".agentctl");
+    const serviceDir = join(homeDir, ".config", "systemd", "user");
+    const servicePath = join(serviceDir, "agentctl-daemon.service");
+    mkdirSync(agentctlHome, { recursive: true });
+    mkdirSync(serviceDir, { recursive: true });
+    writeFileSync(servicePath, "service");
+
+    const result = uninstallAgentctl({
+      homeDir,
+      platform: "linux",
+      runCommand: (cmd) => {
+        if (cmd[0] === "systemctl" && cmd.includes("disable")) {
+          return {
+            ok: false,
+            error: "Failed to disable unit: Unit file agentctl-daemon.service does not exist.",
+          };
+        }
+        return { ok: true };
+      },
+    });
+
+    expect(result.serviceStopped).toBe(false);
+    expect(result.warnings).toEqual([]);
+    expect(existsSync(servicePath)).toBe(false);
+  });
+
+  test("removes the pm2 daemon fallback when no Linux systemd service exists", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-home-"));
+    const agentctlHome = join(homeDir, ".agentctl");
+    mkdirSync(agentctlHome, { recursive: true });
+    const commands: string[][] = [];
+
+    const result = uninstallAgentctl({
+      homeDir,
+      platform: "linux",
+      runCommand: (cmd) => {
+        commands.push(cmd);
+        return { ok: true };
+      },
+    });
+
+    expect(result.serviceStopped).toBe(true);
+    expect(commands).toContainEqual(["pm2", "delete", "agentctl-daemon"]);
+    expect(existsSync(agentctlHome)).toBe(false);
+  });
+
+  test("does not warn when no daemon registration exists and pm2 is unavailable", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-home-"));
+    const agentctlHome = join(homeDir, ".agentctl");
+    mkdirSync(agentctlHome, { recursive: true });
+
+    const result = uninstallAgentctl({
+      homeDir,
+      platform: "linux",
+      runCommand: () => {
+        throw Object.assign(new Error("Executable not found in $PATH: pm2"), {
+          code: "ENOENT",
+        });
+      },
+    });
+
+    expect(result.serviceStopped).toBe(false);
+    expect(result.warnings).toEqual([]);
+    expect(result.homeRemoved).toBe(true);
+    expect(existsSync(agentctlHome)).toBe(false);
   });
 });
