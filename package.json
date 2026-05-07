@@ -6,7 +6,7 @@
     "dev:daemon": "bun run --watch src/daemon/server.ts",
     "build:hooks": "bun build --compile --target bun src/hooks/pre-tool-use.ts --outfile dist/hooks/pre-tool-use && bun build --compile --target bun src/hooks/post-tool-use.ts --outfile dist/hooks/post-tool-use && bun build --compile --target bun src/hooks/subagent-start.ts --outfile dist/hooks/subagent-start && bun build --compile --target bun src/hooks/subagent-stop.ts --outfile dist/hooks/subagent-stop",
     "build:daemon": "bun build --compile --target bun src/daemon/server.ts --outfile dist/agentctl-daemon",
-    "build:cli": "bun build --compile --target bun src/cli/index.ts --outfile dist/agentctl --define 'process.env.DEV=\"\"'",
+    "build:cli": "bun build --compile --target bun src/cli/index.ts --outfile dist/agentctl --define 'process.env.DEV=\"\"' --external react-devtools-core",
     "build:local": "bun run build:hooks && bun run build:daemon && bun run build:cli",
     "build:release": "bun run src/release/build-artifacts.ts",
     "build": "bun run build:release",

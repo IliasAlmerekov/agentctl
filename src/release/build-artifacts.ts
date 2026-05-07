@@ -13,6 +13,7 @@ export type ReleaseBinary = {
   name: string;
   entrypoint: string;
   defines?: string[];
+  externals?: string[];
 };
 
 export type ReleaseArtifact = {
@@ -40,6 +41,7 @@ export const RELEASE_BINARIES: ReleaseBinary[] = [
     name: "agentctl",
     entrypoint: "src/cli/index.ts",
     defines: ['process.env.DEV=""'],
+    externals: ["react-devtools-core"],
   },
   { name: "agentctl-daemon", entrypoint: "src/daemon/server.ts" },
   { name: "pre-tool-use", entrypoint: "src/hooks/pre-tool-use.ts" },
@@ -62,6 +64,10 @@ export function getReleaseArtifacts(): ReleaseArtifact[] {
 
       for (const define of binary.defines ?? []) {
         args.push("--define", define);
+      }
+
+      for (const external of binary.externals ?? []) {
+        args.push("--external", external);
       }
 
       return { binary, platform, outfile, args };
