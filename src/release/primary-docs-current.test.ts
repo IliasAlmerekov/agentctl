@@ -1,0 +1,50 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "fs";
+
+const PRIMARY_DOCS = ["README.md", "AGENTCTL.md"] as const;
+
+function read(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+describe("primary docs current behavior", () => {
+  test("primary docs describe verified release artifact installation", () => {
+    for (const path of PRIMARY_DOCS) {
+      const doc = read(path);
+
+      expect(doc, `${path} should mention SHA256SUMS`).toContain("SHA256SUMS");
+      expect(
+        doc,
+        `${path} should say checksums gate install, not just chmod`,
+      ).toContain(
+        "verifies `SHA256SUMS` before installing or making downloaded binaries executable",
+      );
+      expect(doc, `${path} should mention auth token creation`).toContain(
+        "`~/.agentctl/auth-token`",
+      );
+      expect(doc, `${path} should mention supported platform doc`).toContain(
+        "docs/platforms.md",
+      );
+    }
+  });
+
+  test("AGENTCTL package and scope notes match release build behavior", () => {
+    const doc = read("AGENTCTL.md");
+
+    expect(doc).toContain(
+      '"build:release": "bun run src/release/build-artifacts.ts"',
+    );
+    expect(doc).toContain('"build": "bun run build:release"');
+    expect(doc).toContain("macOS and Linux x64");
+    expect(doc).toContain("CLI, daemon, and hook release artifacts");
+    expect(doc).toContain("launchd, `systemd --user`, or pm2");
+
+    for (const staleText of [
+      "linux later",
+      "all three binaries",
+      '"build": "bun run build:hooks && bun run build:daemon && bun run build:cli"',
+    ]) {
+      expect(doc).not.toContain(staleText);
+    }
+  });
+});

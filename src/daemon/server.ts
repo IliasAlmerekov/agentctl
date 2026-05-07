@@ -1,11 +1,8 @@
 import { Database } from "bun:sqlite";
 import {
-  cleanupOldRuntimeData,
-  initSchema,
   getAgents,
-  reconcileRunningAgents,
+  prepareDaemonDatabase,
   recordDaemonHeartbeat,
-  startDaemonRuntime,
 } from "./db.ts";
 import { createDaemonFetch } from "./http.ts";
 import { mkdirSync } from "fs";
@@ -18,10 +15,7 @@ mkdirSync(dbDir, { recursive: true });
 
 export const db = new Database(`${dbDir}/agents.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL");
-initSchema(db);
-reconcileRunningAgents(db);
-cleanupOldRuntimeData(db);
-const daemonBoot = startDaemonRuntime(db);
+const daemonBoot = prepareDaemonDatabase(db);
 setInterval(() => recordDaemonHeartbeat(db, daemonBoot.boot_id), 30_000);
 const authToken = readAuthToken();
 

@@ -45,7 +45,7 @@ By default, the installer downloads the `latest` assets from `https://github.com
 curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0 bash
 ```
 
-For the detected platform, the release must include `SHA256SUMS` plus these artifacts: `agentctl-$platform`, `agentctl-daemon-$platform`, `pre-tool-use-$platform`, `post-tool-use-$platform`, `subagent-start-$platform`, and `subagent-stop-$platform`. The installer verifies `SHA256SUMS` before making downloaded binaries executable.
+For the detected platform, the release must include `SHA256SUMS` plus these artifacts: `agentctl-$platform`, `agentctl-daemon-$platform`, `pre-tool-use-$platform`, `post-tool-use-$platform`, `subagent-start-$platform`, and `subagent-stop-$platform`. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable.
 
 It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.agentctl/bin/hooks/`, generates or reuses `~/.agentctl/auth-token`, patches `~/.claude/settings.json`, then registers the daemon with launchd, `systemd --user`, or pm2 when available. After install, restart your shell or reload your rc file, then run `agentctl status`.
 

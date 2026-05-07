@@ -25,11 +25,16 @@ esac
 
 # ─── 2. Download binaries ─────────────────────────────────────────────────────
 VERSION="${AGENTCTL_VERSION:-latest}"
-BASE_URL="https://github.com/$REPO/releases/${VERSION}/download"
+BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"
 DRY_RUN="${AGENTCTL_INSTALL_DRY_RUN:-0}"
+SKIP_DAEMON_REGISTRATION="${AGENTCTL_SKIP_DAEMON_REGISTRATION:-0}"
 
 is_dry_run() {
   [[ "$DRY_RUN" == "1" || "$DRY_RUN" == "true" || "$DRY_RUN" == "yes" ]]
+}
+
+should_skip_daemon_registration() {
+  [[ "$SKIP_DAEMON_REGISTRATION" == "1" || "$SKIP_DAEMON_REGISTRATION" == "true" || "$SKIP_DAEMON_REGISTRATION" == "yes" ]]
 }
 
 if is_dry_run; then
@@ -45,6 +50,19 @@ if is_dry_run; then
 fi
 
 mkdir -p "$HOOKS_DIR"
+DOWNLOAD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/agentctl-install.XXXXXX")"
+CHECKSUMS_DOWNLOAD="$DOWNLOAD_DIR/SHA256SUMS"
+
+cleanup_downloads() {
+  rm -rf "$DOWNLOAD_DIR"
+}
+
+trap cleanup_downloads EXIT
+
+staged_artifact_path() {
+  local artifact="$1"
+  echo "$DOWNLOAD_DIR/$artifact"
+}
 
 generate_auth_token() {
   if command -v openssl >/dev/null 2>&1; then
@@ -74,7 +92,7 @@ sha256_file() {
 
 expected_checksum() {
   local artifact="$1"
-  awk -v name="$artifact" '$2 == name { print $1; exit }' "$CHECKSUMS_FILE"
+  awk -v name="$artifact" '$2 == name { print $1; exit }' "$CHECKSUMS_DOWNLOAD"
 }
 
 verify_checksum() {
@@ -99,12 +117,22 @@ verify_checksum() {
 }
 
 verify_downloads() {
-  verify_checksum "agentctl-$PLATFORM" "$BIN_DIR/agentctl"
-  verify_checksum "agentctl-daemon-$PLATFORM" "$BIN_DIR/agentctl-daemon"
-  verify_checksum "pre-tool-use-$PLATFORM" "$HOOKS_DIR/pre-tool-use"
-  verify_checksum "post-tool-use-$PLATFORM" "$HOOKS_DIR/post-tool-use"
-  verify_checksum "subagent-start-$PLATFORM" "$HOOKS_DIR/subagent-start"
-  verify_checksum "subagent-stop-$PLATFORM" "$HOOKS_DIR/subagent-stop"
+  verify_checksum "agentctl-$PLATFORM" "$(staged_artifact_path "agentctl-$PLATFORM")"
+  verify_checksum "agentctl-daemon-$PLATFORM" "$(staged_artifact_path "agentctl-daemon-$PLATFORM")"
+  verify_checksum "pre-tool-use-$PLATFORM" "$(staged_artifact_path "pre-tool-use-$PLATFORM")"
+  verify_checksum "post-tool-use-$PLATFORM" "$(staged_artifact_path "post-tool-use-$PLATFORM")"
+  verify_checksum "subagent-start-$PLATFORM" "$(staged_artifact_path "subagent-start-$PLATFORM")"
+  verify_checksum "subagent-stop-$PLATFORM" "$(staged_artifact_path "subagent-stop-$PLATFORM")"
+}
+
+install_downloads() {
+  cp "$CHECKSUMS_DOWNLOAD" "$CHECKSUMS_FILE"
+  mv "$(staged_artifact_path "agentctl-$PLATFORM")" "$BIN_DIR/agentctl"
+  mv "$(staged_artifact_path "agentctl-daemon-$PLATFORM")" "$BIN_DIR/agentctl-daemon"
+  mv "$(staged_artifact_path "pre-tool-use-$PLATFORM")" "$HOOKS_DIR/pre-tool-use"
+  mv "$(staged_artifact_path "post-tool-use-$PLATFORM")" "$HOOKS_DIR/post-tool-use"
+  mv "$(staged_artifact_path "subagent-start-$PLATFORM")" "$HOOKS_DIR/subagent-start"
+  mv "$(staged_artifact_path "subagent-stop-$PLATFORM")" "$HOOKS_DIR/subagent-stop"
 }
 
 if [[ ! -f "$AUTH_TOKEN_FILE" ]]; then
@@ -118,15 +146,16 @@ fi
 
 echo "Downloading agentctl $VERSION for $PLATFORM..."
 
-curl -fsSL "$BASE_URL/SHA256SUMS" -o "$CHECKSUMS_FILE"
-curl -fsSL "$BASE_URL/agentctl-$PLATFORM" -o "$BIN_DIR/agentctl"
-curl -fsSL "$BASE_URL/agentctl-daemon-$PLATFORM" -o "$BIN_DIR/agentctl-daemon"
-curl -fsSL "$BASE_URL/pre-tool-use-$PLATFORM" -o "$HOOKS_DIR/pre-tool-use"
-curl -fsSL "$BASE_URL/post-tool-use-$PLATFORM" -o "$HOOKS_DIR/post-tool-use"
-curl -fsSL "$BASE_URL/subagent-start-$PLATFORM" -o "$HOOKS_DIR/subagent-start"
-curl -fsSL "$BASE_URL/subagent-stop-$PLATFORM" -o "$HOOKS_DIR/subagent-stop"
+curl -fsSL "$BASE_URL/SHA256SUMS" -o "$CHECKSUMS_DOWNLOAD"
+curl -fsSL "$BASE_URL/agentctl-$PLATFORM" -o "$(staged_artifact_path "agentctl-$PLATFORM")"
+curl -fsSL "$BASE_URL/agentctl-daemon-$PLATFORM" -o "$(staged_artifact_path "agentctl-daemon-$PLATFORM")"
+curl -fsSL "$BASE_URL/pre-tool-use-$PLATFORM" -o "$(staged_artifact_path "pre-tool-use-$PLATFORM")"
+curl -fsSL "$BASE_URL/post-tool-use-$PLATFORM" -o "$(staged_artifact_path "post-tool-use-$PLATFORM")"
+curl -fsSL "$BASE_URL/subagent-start-$PLATFORM" -o "$(staged_artifact_path "subagent-start-$PLATFORM")"
+curl -fsSL "$BASE_URL/subagent-stop-$PLATFORM" -o "$(staged_artifact_path "subagent-stop-$PLATFORM")"
 
 verify_downloads
+install_downloads
 
 chmod +x "$BIN_DIR/agentctl" "$BIN_DIR/agentctl-daemon" \
          "$HOOKS_DIR/pre-tool-use" "$HOOKS_DIR/post-tool-use" \
@@ -226,7 +255,10 @@ console.log('Patched ~/.claude/settings.json');
 "
 
 # ─── 5. Register daemon as background process ─────────────────────────────────
-if [[ "$OS" == "Darwin" ]]; then
+if should_skip_daemon_registration; then
+  echo "Skipping daemon registration"
+
+elif [[ "$OS" == "Darwin" ]]; then
   PLIST="$AGENTCTL_HOME/agentctl-daemon.plist"
   cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

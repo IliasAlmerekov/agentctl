@@ -692,8 +692,11 @@ Hooks are compiled to standalone binaries (`bun build --compile`) so Claude Code
     "dev:daemon": "bun run --watch src/daemon/server.ts",
     "build:hooks": "bun build --compile --target bun src/hooks/pre-tool-use.ts --outfile dist/hooks/pre-tool-use && ...",
     "build:daemon": "bun build --compile --target bun src/daemon/server.ts  --outfile dist/agentctl-daemon",
-    "build:cli": "bun build --compile --target bun src/cli/index.ts       --outfile dist/agentctl",
-    "build": "bun run build:hooks && bun run build:daemon && bun run build:cli",
+    "build:cli": "bun build --compile --target bun src/cli/index.ts --outfile dist/agentctl --define 'process.env.DEV=\"\"' --external react-devtools-core",
+    "build:local": "bun run build:hooks && bun run build:daemon && bun run build:cli",
+    "build:release": "bun run src/release/build-artifacts.ts",
+    "build": "bun run build:release",
+    "measure:hooks": "bun run scripts/measure-hook-latency.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -703,7 +706,8 @@ Hooks are compiled to standalone binaries (`bun build --compile`) so Claude Code
   },
   "devDependencies": {
     "@types/react": "^18",
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "typescript": "^5"
   }
 }
 ```
@@ -718,13 +722,14 @@ Single command, like RTK:
 curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | bash
 ```
 
-`install.sh` does five things:
+`install.sh` does six things:
 
 1. Detect platform (darwin-arm64, darwin-x64, linux-x64; full matrix in `docs/platforms.md`)
-2. Download pre-compiled binaries from GitHub Releases into `~/.agentctl/bin/`
-3. Add `~/.agentctl/bin` to PATH in `.zshrc` / `.bashrc`
-4. Patch `~/.claude/settings.json` with hook entries (non-destructive merge)
-5. Register daemon as a background process:
+2. Download pre-compiled binaries and `SHA256SUMS` from GitHub Releases into a staging directory
+3. The installer verifies `SHA256SUMS` before installing or making downloaded binaries executable, then installs CLI, daemon, and hook binaries into `~/.agentctl/bin/`
+4. Generate or reuse `~/.agentctl/auth-token`
+5. Add `~/.agentctl/bin` to PATH in `.zshrc` / `.bashrc` and patch `~/.claude/settings.json` with hook entries (non-destructive merge)
+6. Register daemon as a background process:
    - macOS: `launchd` plist → `~/.agentctl/agentctl-daemon.plist`
    - Linux: `systemd --user` unit
    - Fallback: pm2
@@ -775,15 +780,15 @@ agentctl uninstall
 - [x] SubagentStart/Stop hooks: agent tree tracking
 - [x] `agentctl inject` and `agentctl cap` commands
 - [x] `agentctl agents` command (JSON output)
-- [x] `install.sh` for macOS (linux later)
+- [x] `install.sh` for macOS and Linux x64
 
 **Week 2 — polish**
 
 - [x] TUI (`agentctl watch`) with Ink
 - [x] Token bar with colour threshold (green → yellow → red)
 - [x] Loop alerts in TUI
-- [x] `bun build --compile` for all three binaries
-- [x] launchd plist for daemon auto-start
+- [x] `bun run build` for CLI, daemon, and hook release artifacts across supported platforms
+- [x] launchd, `systemd --user`, or pm2 daemon registration
 - [x] README with demo GIF
 
 **Out of scope for MVP:**
