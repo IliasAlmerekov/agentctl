@@ -736,6 +736,7 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 
 After install, no configuration needed. Start Claude Code — agentctl is active.
 
+Step-by-step first-run onboarding is documented in `docs/onboarding.md`.
 Troubleshooting for daemon, PATH, stale DB, and hook config problems is documented in `docs/troubleshooting.md`.
 
 ---
