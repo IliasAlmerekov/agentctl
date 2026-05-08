@@ -11,6 +11,13 @@ type ValidationResult =
   | { ok: true }
   | { ok: false; message: string; exitCode: 1 };
 
+export function parseCapTokens(raw: string): number | null {
+  if (!/^[1-9]\d*$/.test(raw)) return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0 || !Number.isSafeInteger(n)) return null;
+  return n;
+}
+
 export function validateCapArgs(
   sessionId: string,
   tokens: number,

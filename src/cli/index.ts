@@ -1,6 +1,6 @@
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import { cmdInject } from "./commands/inject.ts";
-import { cmdCap } from "./commands/cap.ts";
+import { cmdCap, parseCapTokens } from "./commands/cap.ts";
 import { cmdKill } from "./commands/kill.ts";
 import { cmdAgents } from "./commands/agents.ts";
 import { cmdWatch } from "./commands/watch.tsx";
@@ -31,10 +31,18 @@ program
   .description("Inject a steering signal into a running agent")
   .action((sessionId, message) => cmdInject(sessionId, message));
 
+function parseTokensOption(raw: string): number {
+  const parsed = parseCapTokens(raw);
+  if (parsed === null) {
+    throw new InvalidArgumentError("must be a positive integer");
+  }
+  return parsed;
+}
+
 program
   .command("cap <session-id>")
   .description("Cap token budget for an agent")
-  .requiredOption("--tokens <n>", "Token budget cap", parseInt)
+  .requiredOption("--tokens <n>", "Token budget cap", parseTokensOption)
   .action((sessionId, opts) => cmdCap(sessionId, opts.tokens));
 
 program

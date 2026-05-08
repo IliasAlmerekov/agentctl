@@ -46,6 +46,13 @@ function payloadTooLarge(limitBytes: number): Response {
   );
 }
 
+function lengthRequired(): Response {
+  return Response.json(
+    { ok: false, error: "Content-Length header required" },
+    { status: 411 },
+  );
+}
+
 function badRequest(message: string): Response {
   return Response.json({ ok: false, error: message }, { status: 400 });
 }
@@ -58,6 +65,18 @@ async function readBoundedJson<T>(
   req: Request,
   maxBytes: number,
 ): Promise<ParsedBody<T>> {
+  const declaredLength = req.headers.get("content-length");
+  if (declaredLength === null) {
+    return { ok: false, response: lengthRequired() };
+  }
+  const declared = Number(declaredLength);
+  if (!Number.isInteger(declared) || declared < 0) {
+    return { ok: false, response: badRequest("invalid content-length") };
+  }
+  if (declared > maxBytes) {
+    return { ok: false, response: payloadTooLarge(maxBytes) };
+  }
+
   const buffer = await req.arrayBuffer();
   if (buffer.byteLength > maxBytes) {
     return { ok: false, response: payloadTooLarge(maxBytes) };

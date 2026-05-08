@@ -19,13 +19,15 @@ function jsonRequest(
   body: unknown,
   token?: string,
 ): Request {
+  const serialized = JSON.stringify(body);
   return new Request(`http://agentctl.test${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Content-Length": String(new TextEncoder().encode(serialized).byteLength),
       ...(token ? { "X-Agentctl-Token": token } : {}),
     },
-    body: JSON.stringify(body),
+    body: serialized,
   });
 }
 
@@ -395,6 +397,7 @@ describe("daemon HTTP body limits and validation", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Content-Length": String(new TextEncoder().encode(body).byteLength),
         "X-Agentctl-Token": token,
       },
       body,
@@ -426,6 +429,55 @@ describe("daemon HTTP body limits and validation", () => {
       await fetchDaemon(rawRequest("/hook/pre", "{broken")),
     );
     expect(res.status).toBe(400);
+  });
+
+  test("rejects via Content-Length header before reading the body", async () => {
+    const db = createTestDb();
+    initSchema(db);
+    db.run(
+      "INSERT INTO agents (session_id, status, started_at) VALUES ('exists', 'running', 0)",
+    );
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    // Real body is small and would parse to a valid request for an existing
+    // agent (would normally return status "queued"). The Content-Length
+    // header claims 5 MB, exceeding the 1 MB control limit. If the
+    // implementation reads the body before checking Content-Length, it would
+    // succeed with status "queued" — we expect 413 instead, proving the
+    // pre-check fires without buffering.
+    const realBody = JSON.stringify({ session_id: "exists", message: "hi" });
+    const req = new Request("http://agentctl.test/inject", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": "5000000",
+        "X-Agentctl-Token": TEST_TOKEN,
+      },
+      body: realBody,
+    });
+
+    const res = expectResponse(await fetchDaemon(req));
+    expect(res.status).toBe(413);
+  });
+
+  test("rejects POST without Content-Length on bounded endpoints", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const req = new Request("http://agentctl.test/inject", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Agentctl-Token": TEST_TOKEN,
+      },
+    });
+
+    const res = expectResponse(await fetchDaemon(req));
+    expect(res.status).toBe(411);
   });
 
   test("returns 413 when control endpoint body exceeds 1 MB", async () => {
