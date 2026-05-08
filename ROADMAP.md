@@ -38,7 +38,7 @@
 | 04 Security and local attack surface | P0 | Done | Закрывает validation, local attack surface и supply-chain exposure. |
 | 05 Build distribution and release | P0 | Blocked | Local Linux build/smoke, archive inspection and checksums done; blocked by private-repo public URL, macOS runner evidence and final version/tag gate. |
 | 06 Test strategy for v1 | P1 | Done | Делает v1 gates воспроизводимыми в local и CI through `docs/test-strategy.md`. |
-| 07 Documentation and onboarding | P1 | Not started | Делает external-user docs точными и проверяемыми. |
+| 07 Documentation and onboarding | P1 | Blocked | Local onboarding docs done through `docs/onboarding.md`; production wording and public install proof wait for public URL/release gates. |
 | 08 v1 release gates | P0 | Not started | Определяет final go/no-go перед `v1.0.0` tag. |
 
 ## Definition Of Production v1.0.0
@@ -59,10 +59,11 @@ agentctl считается Production v1.0.0, когда одновременн
 - [ ] P0 / Blocked — `bun run check:public-install-url` проходит против публичного `main`.
 - [ ] P0 / Blocked — `bun run smoke:install` проходит на Linux x64 и macOS runner. 2026-05-08: Linux x64 local smoke passed; macOS runner evidence still required.
 - [x] P0 / Done — `bun run measure:hooks` проходит при свободном `127.0.0.1:47823` и фиксирует p95 в documented budget.
-- [ ] P0 / Not started — public-facing tracked docs не содержат незакрытого launch planning состояния.
+- [ ] P0 / Blocked — public-facing tracked docs не содержат незакрытого launch planning состояния. 2026-05-08: local onboarding docs are aligned; beta language remains until public URL and v1 release gates pass.
 - [ ] P0 / In progress — `bun install --frozen-lockfile`, `bun test`, `bun run typecheck`, `bun run build` проходят в clean environment. 2026-05-08: all four commands passed locally with Bun available; clean-runner CI evidence still required.
 - [x] P0 / Done — release artifacts inspected: archive composition, executable files, checksums.
 - [x] P1 / Done — v1 test strategy documented in `docs/test-strategy.md`: mandatory commands, coverage ownership, manual TUI/macOS checklist, lint policy and test taxonomy.
+- [x] P1 / Done — external-user onboarding documented in `docs/onboarding.md`: first status check, command reference, managed hooks, recovery map, supported artifacts and known limitations.
 - [ ] P0 / Not started — GitHub Actions release path проверен dry-run или tag-protected rehearsal без непреднамеренной публикации.
 
 ## Non-Goals For v1.0.0
