@@ -7,8 +7,11 @@ export type WatchGuardResult =
   | { ok: true }
   | { ok: false; message: string; exitCode: 1 };
 
-export function watchGuard(isTTY: boolean | undefined): WatchGuardResult {
-  if (!isTTY) {
+export function watchGuard(streams: {
+  stdin: boolean | undefined;
+  stdout: boolean | undefined;
+}): WatchGuardResult {
+  if (!streams.stdin || !streams.stdout) {
     return { ok: false, message: "agentctl watch requires a TTY", exitCode: 1 };
   }
   return { ok: true };
@@ -160,7 +163,10 @@ function Watch() {
 }
 
 export function cmdWatch() {
-  const guard = watchGuard(process.stdout.isTTY);
+  const guard = watchGuard({
+    stdin: process.stdin.isTTY,
+    stdout: process.stdout.isTTY,
+  });
   if (!guard.ok) {
     console.error(guard.message);
     process.exit(guard.exitCode);
