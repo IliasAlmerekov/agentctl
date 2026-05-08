@@ -1,7 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { render, Box, Text, useInput } from "ink";
 import { daemonWsUrl, apiAgents } from "../api.ts";
 import type { Agent, AgentEvent } from "../../types.ts";
+
+export type WatchGuardResult =
+  | { ok: true }
+  | { ok: false; message: string; exitCode: 1 };
+
+export function watchGuard(isTTY: boolean | undefined): WatchGuardResult {
+  if (!isTTY) {
+    return { ok: false, message: "agentctl watch requires a TTY", exitCode: 1 };
+  }
+  return { ok: true };
+}
+
+export function reconnectDelay(attempt: number, baseMs = 1000, maxMs = 10_000): number {
+  return Math.min(baseMs * Math.pow(2, attempt), maxMs);
+}
 
 function TokenBar({ used, budget }: { used: number; budget?: number }) {
   if (!budget) return <Text dimColor>{used.toLocaleString()} tokens</Text>;
@@ -62,26 +77,47 @@ function Watch() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  const reconnectAttempt = useRef(0);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Load initial state
+    let ws: WebSocket | null = null;
+    let cancelled = false;
+
+    function connect() {
+      ws = new WebSocket(daemonWsUrl());
+
+      ws.onopen = () => {
+        setConnected(true);
+        reconnectAttempt.current = 0;
+      };
+
+      ws.onclose = () => {
+        if (cancelled) return;
+        setConnected(false);
+        const delay = reconnectDelay(reconnectAttempt.current);
+        reconnectAttempt.current += 1;
+        reconnectTimer.current = setTimeout(connect, delay);
+      };
+
+      ws.onmessage = (e) => {
+        const event: AgentEvent = JSON.parse(e.data as string);
+        if (event.type === "agents_update") setAgents(event.agents);
+        if (event.type === "loop_detected")
+          setAlerts((prev) => [...prev.slice(-4), `⚠  ${event.message}`]);
+        if (event.type === "budget_exceeded")
+          setAlerts((prev) => [...prev.slice(-4), `⚡ ${event.message}`]);
+      };
+    }
+
     apiAgents().then(setAgents).catch(() => {});
+    connect();
 
-    const ws = new WebSocket(daemonWsUrl());
-
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-
-    ws.onmessage = (e) => {
-      const event: AgentEvent = JSON.parse(e.data as string);
-      if (event.type === "agents_update") setAgents(event.agents);
-      if (event.type === "loop_detected")
-        setAlerts((prev) => [...prev.slice(-4), `⚠  ${event.message}`]);
-      if (event.type === "budget_exceeded")
-        setAlerts((prev) => [...prev.slice(-4), `⚡ ${event.message}`]);
+    return () => {
+      cancelled = true;
+      ws?.close();
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
     };
-
-    return () => ws.close();
   }, []);
 
   useInput((input) => {
@@ -95,7 +131,7 @@ function Watch() {
       <Box gap={2}>
         <Text bold>agentctl</Text>
         <Text dimColor>{running} running</Text>
-        {!connected && <Text color="red">daemon disconnected</Text>}
+        {!connected && <Text color="red">daemon disconnected — reconnecting…</Text>}
       </Box>
 
       <Box marginTop={1} flexDirection="column" gap={0}>
@@ -124,5 +160,10 @@ function Watch() {
 }
 
 export function cmdWatch() {
+  const guard = watchGuard(process.stdout.isTTY);
+  if (!guard.ok) {
+    console.error(guard.message);
+    process.exit(guard.exitCode);
+  }
   render(<Watch />);
 }

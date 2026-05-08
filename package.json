@@ -2,6 +2,18 @@
   "name": "agentctl",
   "version": "0.1.0",
   "description": "Sub-agent control plane for Claude Code",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IliasAlmerekov/agentctl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IliasAlmerekov/agentctl/issues"
+  },
+  "homepage": "https://github.com/IliasAlmerekov/agentctl#readme",
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "scripts": {
     "dev:daemon": "bun run --watch src/daemon/server.ts",
     "build:hooks": "bun build --compile --target bun src/hooks/pre-tool-use.ts --outfile dist/hooks/pre-tool-use && bun build --compile --target bun src/hooks/post-tool-use.ts --outfile dist/hooks/post-tool-use && bun build --compile --target bun src/hooks/subagent-start.ts --outfile dist/hooks/subagent-start && bun build --compile --target bun src/hooks/subagent-stop.ts --outfile dist/hooks/subagent-stop",

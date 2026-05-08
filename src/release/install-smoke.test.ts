@@ -71,23 +71,24 @@ describe("install smoke workflow", () => {
     expect(script).toContain('bash "$ROOT/install.sh"');
   });
 
-  test("release workflow smokes public URLs publicly and release assets privately", () => {
+  test("release workflow smokes draft release assets before publishing", () => {
     expect(existsSync(RELEASE_WORKFLOW)).toBe(true);
     const workflow = readFileSync(RELEASE_WORKFLOW, "utf8");
 
     expect(workflow).toContain("release-smoke:");
-    expect(workflow).toContain("needs: publish-release");
+    expect(
+      workflow,
+      "smoke must run on the draft (build-release), not after publish",
+    ).toContain("needs: build-release");
     expect(workflow).toContain("ubuntu-latest");
     expect(workflow).toContain("macos-latest");
     expect(workflow).toContain("uses: actions/checkout@v6");
     expect(workflow).toContain("AGENTCTL_VERSION: ${{ github.ref_name }}");
-    expect(workflow).toContain("github.event.repository.private");
     expect(workflow).toContain("gh release download");
     expect(workflow).toContain("AGENTCTL_SMOKE_INSTALL_SOURCE: release-assets");
     expect(workflow).toContain(
       "AGENTCTL_BASE_URL: file://${{ runner.temp }}/agentctl-release-assets",
     );
-    expect(workflow).toContain("AGENTCTL_SMOKE_INSTALL_SOURCE: public");
     expect(workflow).toContain("bash scripts/smoke-install.sh");
   });
 });

@@ -39,4 +39,23 @@ describe("release workflow", () => {
 
     expect(workflow).toContain(`dist/${CHECKSUMS_FILE_NAME}`);
   });
+
+  test("creates release as draft and promotes only after smoke passes", () => {
+    const workflow = readFileSync(RELEASE_WORKFLOW, "utf8");
+
+    expect(workflow, "release must be created as a draft").toContain("--draft");
+    expect(workflow, "draft must be promoted via gh release edit").toContain(
+      "gh release edit",
+    );
+    expect(workflow).toContain("--draft=false");
+
+    const publishJobMatch = workflow.match(
+      /publish-release:[\s\S]*?needs:\s*([\w-]+)/,
+    );
+    expect(
+      publishJobMatch,
+      "publish-release job must declare needs: release-smoke",
+    ).not.toBeNull();
+    expect(publishJobMatch![1]).toBe("release-smoke");
+  });
 });
