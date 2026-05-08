@@ -25,7 +25,13 @@ esac
 
 # ─── 2. Download release archive ───────────────────────────────────────────────
 VERSION="${AGENTCTL_VERSION:-latest}"
-BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"
+if [[ -n "${AGENTCTL_BASE_URL:-}" ]]; then
+  BASE_URL="$AGENTCTL_BASE_URL"
+elif [[ "$VERSION" == "latest" ]]; then
+  BASE_URL="https://github.com/$REPO/releases/latest/download"
+else
+  BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
+fi
 ARCHIVE="agentctl-$PLATFORM.tar.gz"
 DRY_RUN="${AGENTCTL_INSTALL_DRY_RUN:-0}"
 SKIP_DAEMON_REGISTRATION="${AGENTCTL_SKIP_DAEMON_REGISTRATION:-0}"

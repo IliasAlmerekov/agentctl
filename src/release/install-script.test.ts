@@ -91,7 +91,10 @@ describe("install.sh checksum verification", () => {
   test("downloads release artifacts from the real GitHub repository", () => {
     expect(INSTALL_SCRIPT).toContain('REPO="IliasAlmerekov/agentctl"');
     expect(INSTALL_SCRIPT).toContain(
-      'BASE_URL="${AGENTCTL_BASE_URL:-https://github.com/$REPO/releases/${VERSION}/download}"',
+      'BASE_URL="https://github.com/$REPO/releases/download/$VERSION"',
+    );
+    expect(INSTALL_SCRIPT).toContain(
+      'BASE_URL="https://github.com/$REPO/releases/latest/download"',
     );
     expect(INSTALL_SCRIPT).not.toContain("your-org");
     expect(INSTALL_SCRIPT).not.toContain("OWNER/REPO");
@@ -511,5 +514,34 @@ describe("install.sh dry run", () => {
     expect(existsSync(curlLogPath)).toBe(false);
     expect(existsSync(join(homeDir, ".agentctl"))).toBe(false);
     expect(existsSync(join(homeDir, ".claude", "settings.json"))).toBe(false);
+  });
+
+  test("uses the GitHub release download URL when AGENTCTL_VERSION pins a tag", () => {
+    const homeDir = mkdtempSync(join(tmpdir(), "agentctl-dry-run-tag-home-"));
+
+    const result = Bun.spawnSync({
+      cmd: ["bash", "install.sh"],
+      env: {
+        ...process.env,
+        AGENTCTL_INSTALL_DRY_RUN: "1",
+        AGENTCTL_VERSION: "v0.1.0-beta.2",
+        HOME: homeDir,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const stdout = new TextDecoder().decode(result.stdout);
+    const stderr = new TextDecoder().decode(result.stderr);
+
+    expect(result.success).toBe(true);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Dry run: would install agentctl v0.1.0-beta.2 for");
+    expect(stdout).toContain(
+      "Dry run: would download release artifacts from https://github.com/IliasAlmerekov/agentctl/releases/download/v0.1.0-beta.2",
+    );
+    expect(stdout).not.toContain(
+      "https://github.com/IliasAlmerekov/agentctl/releases/v0.1.0-beta.2/download",
+    );
   });
 });
