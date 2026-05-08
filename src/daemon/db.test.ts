@@ -95,6 +95,31 @@ describe("schema version guard", () => {
         `Upgrade the daemon binary or move ~/.agentctl/agents.db aside.`,
     );
   });
+
+  test("rejects schema_metadata table with no schema_version row", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE schema_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+    expect(() => assertSupportedSchema(db)).toThrow(
+      /schema_metadata exists but schema_version is missing or unreadable/,
+    );
+  });
+
+  test("rejects schema_metadata with a malformed schema_version value", () => {
+    const db = createTestDb();
+    db.run(
+      `UPDATE schema_metadata SET value = ? WHERE key = 'schema_version'`,
+      ["not-a-number"],
+    );
+    expect(() => assertSupportedSchema(db)).toThrow(
+      /schema_metadata exists but schema_version is missing or unreadable/,
+    );
+  });
 });
 
 describe("daemon database startup reconciliation", () => {

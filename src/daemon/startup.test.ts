@@ -115,4 +115,29 @@ describe("daemon startup errors", () => {
     expect(runtime.db).toBeDefined();
     runtime.db.close();
   });
+
+  test("startup logs do not include the auth token", () => {
+    const home = tempHome();
+    mkdirSync(join(home, ".agentctl"), { recursive: true });
+    const secret = "very-secret-test-token-12345";
+    writeFileSync(join(home, ".agentctl", "auth-token"), `${secret}\n`);
+
+    const captured: string[] = [];
+    const recordingLogger = {
+      log: (...args: unknown[]) => captured.push(args.map(String).join(" ")),
+    };
+
+    const runtime = startDaemon({
+      home,
+      serve: noopServe,
+      setIntervalFn: noopInterval,
+      logger: recordingLogger,
+    });
+
+    for (const line of captured) {
+      expect(line).not.toContain(secret);
+      expect(line).not.toContain("token=");
+    }
+    runtime.db.close();
+  });
 });

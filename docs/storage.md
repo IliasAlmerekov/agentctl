@@ -21,6 +21,14 @@ If the database contains a different schema version, the daemon refuses to start
 agentctl daemon cannot start: unsupported schema version N. This binary supports schema version 1. Upgrade the daemon binary or move ~/.agentctl/agents.db aside.
 ```
 
+If the `schema_metadata` table exists but the `schema_version` row is missing or malformed, the daemon also refuses to start:
+
+```
+agentctl daemon cannot start: schema_metadata exists but schema_version is missing or unreadable. Move ~/.agentctl/agents.db aside to recover.
+```
+
+This is fail-closed: a database whose compatibility cannot be established is never silently re-stamped as v1. The only path to a fresh v1 database is when no `schema_metadata` table exists at all (truly empty install).
+
 This protects user data from accidental schema downgrade or from a future-version daemon writing to an older database.
 
 ## WAL mode

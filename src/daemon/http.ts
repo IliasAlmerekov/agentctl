@@ -23,6 +23,10 @@ type DaemonFetchOptions = {
   authToken?: string;
 };
 
+export const CONTROL_BODY_LIMIT_BYTES = 1 * 1024 * 1024; // 1 MB
+export const HOOK_BODY_LIMIT_BYTES = 10 * 1024 * 1024; // 10 MB
+export const INJECTION_MESSAGE_LIMIT_BYTES = 64 * 1024; // 64 KB
+
 const CLI_ENDPOINTS = new Set(["/inject", "/cap", "/kill", "/agents", "/status"]);
 const HOOK_ENDPOINTS = new Set([
   "/hook/pre",
@@ -33,6 +37,41 @@ const HOOK_ENDPOINTS = new Set([
 
 function unauthorized(): Response {
   return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+}
+
+function payloadTooLarge(limitBytes: number): Response {
+  return Response.json(
+    { ok: false, error: `payload exceeds ${limitBytes} bytes` },
+    { status: 413 },
+  );
+}
+
+function badRequest(message: string): Response {
+  return Response.json({ ok: false, error: message }, { status: 400 });
+}
+
+type ParsedBody<T> =
+  | { ok: true; body: T }
+  | { ok: false; response: Response };
+
+async function readBoundedJson<T>(
+  req: Request,
+  maxBytes: number,
+): Promise<ParsedBody<T>> {
+  const buffer = await req.arrayBuffer();
+  if (buffer.byteLength > maxBytes) {
+    return { ok: false, response: payloadTooLarge(maxBytes) };
+  }
+  try {
+    const text = new TextDecoder().decode(buffer);
+    return { ok: true, body: JSON.parse(text) as T };
+  } catch {
+    return { ok: false, response: badRequest("invalid json") };
+  }
+}
+
+function utf8ByteLength(s: string): number {
+  return new TextEncoder().encode(s).byteLength;
 }
 
 function isCliEndpoint(pathname: string): boolean {
@@ -68,27 +107,51 @@ export function createDaemonFetch(
     }
 
     if (pathname === "/hook/pre" && req.method === "POST") {
-      const body = await req.json();
-      return Response.json(handlePreTool(body, db, broadcast));
+      const parsed = await readBoundedJson(req, HOOK_BODY_LIMIT_BYTES);
+      if (!parsed.ok) return parsed.response;
+      return Response.json(handlePreTool(parsed.body as never, db, broadcast));
     }
 
     if (pathname === "/hook/post" && req.method === "POST") {
-      const body = await req.json();
-      return Response.json(handlePostTool(body, db, broadcast));
+      const parsed = await readBoundedJson(req, HOOK_BODY_LIMIT_BYTES);
+      if (!parsed.ok) return parsed.response;
+      return Response.json(handlePostTool(parsed.body as never, db, broadcast));
     }
 
     if (pathname === "/hook/subagent-start" && req.method === "POST") {
-      const body = await req.json();
-      return Response.json(handleSubagent("start", body, db, broadcast));
+      const parsed = await readBoundedJson(req, HOOK_BODY_LIMIT_BYTES);
+      if (!parsed.ok) return parsed.response;
+      return Response.json(
+        handleSubagent("start", parsed.body as never, db, broadcast),
+      );
     }
 
     if (pathname === "/hook/subagent-stop" && req.method === "POST") {
-      const body = await req.json();
-      return Response.json(handleSubagent("stop", body, db, broadcast));
+      const parsed = await readBoundedJson(req, HOOK_BODY_LIMIT_BYTES);
+      if (!parsed.ok) return parsed.response;
+      return Response.json(
+        handleSubagent("stop", parsed.body as never, db, broadcast),
+      );
     }
 
     if (pathname === "/inject" && req.method === "POST") {
-      const { session_id, message } = (await req.json()) as InjectRequest;
+      const parsed = await readBoundedJson<InjectRequest>(
+        req,
+        CONTROL_BODY_LIMIT_BYTES,
+      );
+      if (!parsed.ok) return parsed.response;
+
+      const { session_id, message } = parsed.body;
+
+      if (
+        typeof message === "string" &&
+        utf8ByteLength(message) > INJECTION_MESSAGE_LIMIT_BYTES
+      ) {
+        return badRequest(
+          `injection message exceeds ${INJECTION_MESSAGE_LIMIT_BYTES} bytes (64 KB UTF-8)`,
+        );
+      }
+
       if (!getAgent(db, session_id)) {
         return Response.json({ ok: true, session_id, status: "not_found" });
       }
@@ -103,7 +166,13 @@ export function createDaemonFetch(
     }
 
     if (pathname === "/cap" && req.method === "POST") {
-      const { session_id, tokens } = (await req.json()) as CapRequest;
+      const parsed = await readBoundedJson<CapRequest>(
+        req,
+        CONTROL_BODY_LIMIT_BYTES,
+      );
+      if (!parsed.ok) return parsed.response;
+
+      const { session_id, tokens } = parsed.body;
       if (!getAgent(db, session_id)) {
         return Response.json({ ok: true, session_id, status: "not_found" });
       }
@@ -114,8 +183,13 @@ export function createDaemonFetch(
     }
 
     if (pathname === "/kill" && req.method === "POST") {
-      const { session_id } = (await req.json()) as KillRequest;
-      const result = killAgent(db, session_id);
+      const parsed = await readBoundedJson<KillRequest>(
+        req,
+        CONTROL_BODY_LIMIT_BYTES,
+      );
+      if (!parsed.ok) return parsed.response;
+
+      const result = killAgent(db, parsed.body.session_id);
       if (result.status !== "not_found") {
         broadcast({ type: "agents_update", agents: getAgents(db) });
       }

@@ -99,7 +99,12 @@ export function assertSupportedSchema(db: Database): void {
   if (!tableExists) return;
 
   const version = getSchemaVersion(db);
-  if (version === null) return;
+  if (version === null) {
+    throw new Error(
+      "schema_metadata exists but schema_version is missing or unreadable. " +
+        "Move ~/.agentctl/agents.db aside to recover.",
+    );
+  }
   if (version === CURRENT_SCHEMA_VERSION) return;
 
   throw new Error(

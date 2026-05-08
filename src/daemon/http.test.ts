@@ -384,3 +384,144 @@ describe("daemon HTTP endpoints", () => {
     }
   });
 });
+
+describe("daemon HTTP body limits and validation", () => {
+  function rawRequest(
+    path: string,
+    body: string,
+    token = TEST_TOKEN,
+  ): Request {
+    return new Request(`http://agentctl.test${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Agentctl-Token": token,
+      },
+      body,
+    });
+  }
+
+  test("returns 400 for malformed JSON on control endpoints", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const res = expectResponse(
+      await fetchDaemon(rawRequest("/inject", "{not json")),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toMatch(/invalid json/i);
+  });
+
+  test("returns 400 for malformed JSON on hook endpoints", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const res = expectResponse(
+      await fetchDaemon(rawRequest("/hook/pre", "{broken")),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test("returns 413 when control endpoint body exceeds 1 MB", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const oversized = JSON.stringify({
+      session_id: "x",
+      message: "a".repeat(1_100_000),
+    });
+
+    const res = expectResponse(
+      await fetchDaemon(rawRequest("/inject", oversized)),
+    );
+    expect(res.status).toBe(413);
+  });
+
+  test("returns 413 when hook endpoint body exceeds 10 MB", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const oversized = JSON.stringify({
+      session_id: "x",
+      tool_name: "Bash",
+      tool_input: { data: "a".repeat(11_000_000) },
+    });
+
+    const res = expectResponse(
+      await fetchDaemon(rawRequest("/hook/pre", oversized)),
+    );
+    expect(res.status).toBe(413);
+  });
+
+  test("hook endpoint accepts 5 MB body within 10 MB limit", async () => {
+    const db = createTestDb();
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const fivemb = JSON.stringify({
+      session_id: "ok-session",
+      tool_name: "Bash",
+      tool_input: { data: "a".repeat(5_000_000) },
+    });
+
+    const res = expectResponse(
+      await fetchDaemon(rawRequest("/hook/pre", fivemb)),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("rejects injection messages larger than 64 KB UTF-8 bytes with 400", async () => {
+    const db = createTestDb();
+    initSchema(db);
+    db.run(
+      "INSERT INTO agents (session_id, status, started_at) VALUES ('big', 'running', 0)",
+    );
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const oversizedMessage = "a".repeat(70_000);
+    const req = jsonRequest(
+      "/inject",
+      { session_id: "big", message: oversizedMessage },
+      TEST_TOKEN,
+    );
+
+    const res = expectResponse(await fetchDaemon(req));
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toMatch(/injection message.*64/i);
+  });
+
+  test("accepts injection message up to 64 KB", async () => {
+    const db = createTestDb();
+    initSchema(db);
+    db.run(
+      "INSERT INTO agents (session_id, status, started_at) VALUES ('ok', 'running', 0)",
+    );
+    const fetchDaemon = createDaemonFetch(db, () => {}, {
+      authToken: TEST_TOKEN,
+    });
+
+    const message = "a".repeat(64 * 1024);
+    const req = jsonRequest(
+      "/inject",
+      { session_id: "ok", message },
+      TEST_TOKEN,
+    );
+
+    const res = expectResponse(await fetchDaemon(req));
+    expect(res.status).toBe(200);
+  });
+});
