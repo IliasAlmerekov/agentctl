@@ -53,9 +53,10 @@ rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run typecheck
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run build
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run check:public-doc-drift
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run check:public-install-url
+# Локальная сборка (sanity check):
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install
-# Release assets smoke (не локальная сборка):
-# AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install:public
+# Release/public install path — обязательно для go/no-go:
+AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install:public
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run measure:hooks
 rtk ls -la dist
 rtk cat dist/SHA256SUMS

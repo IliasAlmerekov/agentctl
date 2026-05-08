@@ -65,9 +65,10 @@ rtk tar -tzf dist/agentctl-linux-x64.tar.gz
 rtk tar -tzf dist/agentctl-darwin-arm64.tar.gz
 rtk tar -tzf dist/agentctl-darwin-x64.tar.gz
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run check:public-install-url
+# Локальная сборка (sanity check):
 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install
-# Для проверки release assets (не локальной сборки):
-# AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install:public
+# Release/public install path — обязательно для go/no-go:
+AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smoke:install:public
 ```
 
 ## Release impact

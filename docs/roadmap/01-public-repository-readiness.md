@@ -4,14 +4,16 @@
 
 Подготовить private repository к безопасному переключению в public без legal ambiguity, stale launch artifacts, accidental private content или недостоверных public docs.
 
-## Audit basis
+## Audit basis (исходное состояние на момент audit)
 
 - Audit verdict: `NOT_READY_FOR_PUBLIC_RELEASE`.
-- Отсутствуют `LICENSE` file и `license` metadata.
-- `package.json` не содержит `repository`, `engines`, `packageManager`.
-- Tracked launch checklist file содержит public launch checklist и unchecked public install URL confirmation.
-- Secret scan не выявил real credentials.
-- `README.md`, `CHANGELOG.md`, `docs/release-notes.md`, `docs/security.md`, `docs/platforms.md`, `docs/troubleshooting.md` существуют и частично синхронизированы тестами.
+- ~~Отсутствуют `LICENSE` file и `license` metadata~~ — закрыто в Phase 01.
+- ~~`package.json` не содержит `repository`, `engines`~~ — закрыто в Phase 01. `packageManager` остаётся открытым (см. work items).
+- ~~Tracked launch checklist file содержит public launch checklist и unchecked public install URL confirmation~~ — закрыто в Phase 01: `TODO.md` убран из git tracking.
+- Secret scan не выявил real credentials (актуально).
+- `README.md`, `CHANGELOG.md`, `docs/release-notes.md`, `docs/security.md`, `docs/platforms.md`, `docs/troubleshooting.md` существуют и частично синхронизированы тестами (актуально).
+
+Текущее состояние отражено в work items ниже.
 
 ## Scope
 

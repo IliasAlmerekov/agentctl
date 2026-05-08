@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  publish-release:
+  build-release:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,7 +36,7 @@ jobs:
       - name: Build release artifacts
         run: bun run build
 
-      - name: Publish GitHub Release
+      - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -48,12 +48,13 @@ jobs:
           )
 
           gh release create "$GITHUB_REF_NAME" "${files[@]}" \
+            --draft \
             --verify-tag \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
 
   release-smoke:
-    needs: publish-release
+    needs: build-release
     strategy:
       fail-fast: false
       matrix:
@@ -67,8 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download release assets for private smoke
-        if: ${{ github.event.repository.private }}
+      - name: Download draft release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -79,17 +79,22 @@ jobs:
             --pattern "agentctl-*.tar.gz" \
             --pattern "SHA256SUMS"
 
-      - name: Public release install smoke
-        if: ${{ !github.event.repository.private }}
-        env:
-          AGENTCTL_VERSION: ${{ github.ref_name }}
-          AGENTCTL_SMOKE_INSTALL_SOURCE: public
-        run: bash scripts/smoke-install.sh
-
-      - name: Private release assets install smoke
-        if: ${{ github.event.repository.private }}
+      - name: Release assets install smoke
         env:
           AGENTCTL_BASE_URL: file://${{ runner.temp }}/agentctl-release-assets
           AGENTCTL_VERSION: ${{ github.ref_name }}
           AGENTCTL_SMOKE_INSTALL_SOURCE: release-assets
         run: bash scripts/smoke-install.sh
+
+  publish-release:
+    needs: release-smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Promote draft to published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false
