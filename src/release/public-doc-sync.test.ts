@@ -32,4 +32,9 @@ describe("public docs launch sync", () => {
       "README.md",
     );
   });
+
+  test("drift check excludes internal superpowers planning docs", () => {
+    const driftScript = readFileSync("scripts/check-public-doc-drift.ts", "utf8");
+    expect(driftScript).toContain("/superpowers/");
+  });
 });

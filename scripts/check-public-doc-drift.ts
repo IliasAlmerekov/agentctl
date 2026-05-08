@@ -22,6 +22,7 @@ const BLOCKED_PATTERNS = [
 function shouldScanFile(path: string): boolean {
   if (path.endsWith(".test.ts")) return false;
   if (path.includes("/hook-fixtures/")) return false;
+  if (path.includes("/superpowers/")) return false;
   return /\.(md|sh|ts|tsx|yml|yaml|json)$/.test(path);
 }
 
