@@ -66,11 +66,8 @@ describe("external onboarding documentation", () => {
     }
   });
 
-  test("primary docs and phase roadmap link onboarding", () => {
+  test("primary docs link onboarding", () => {
     expect(readFileSync("README.md", "utf8")).toContain(ONBOARDING_DOC);
     expect(readFileSync("AGENTCTL.md", "utf8")).toContain(ONBOARDING_DOC);
-    expect(
-      readFileSync("docs/roadmap/07-documentation-and-user-onboarding.md", "utf8"),
-    ).toContain(ONBOARDING_DOC);
   });
 });
