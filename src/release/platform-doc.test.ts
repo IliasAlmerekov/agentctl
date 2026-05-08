@@ -28,6 +28,20 @@ describe("platform support documentation", () => {
     }
   });
 
+  test("documents release build prerequisites", () => {
+    const doc = readFileSync(PLATFORM_DOC, "utf8");
+
+    for (const prerequisite of [
+      "Bun 1.3.13",
+      "`tar`",
+      "network access",
+      "Bun compile targets",
+      "`sha256sum` or `shasum`",
+    ]) {
+      expect(doc).toContain(prerequisite);
+    }
+  });
+
   test("primary docs link the platform matrix", () => {
     expect(readFileSync("README.md", "utf8")).toContain(PLATFORM_DOC);
     expect(readFileSync("AGENTCTL.md", "utf8")).toContain(PLATFORM_DOC);

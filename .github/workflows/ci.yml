@@ -45,20 +45,29 @@ jobs:
       - name: Smoke test release artifacts
         run: |
           test -s dist/SHA256SUMS
+          (cd dist && sha256sum -c SHA256SUMS)
+
           artifacts=(
             agentctl-darwin-arm64.tar.gz
             agentctl-darwin-x64.tar.gz
             agentctl-linux-x64.tar.gz
           )
+          expected_entries=(
+            "./"
+            "./agentctl"
+            "./agentctl-daemon"
+            "./hooks/"
+            "./hooks/pre-tool-use"
+            "./hooks/post-tool-use"
+            "./hooks/subagent-start"
+            "./hooks/subagent-stop"
+          )
+          expected_file="$RUNNER_TEMP/agentctl-expected-archive-entries"
+          printf '%s\n' "${expected_entries[@]}" | sort > "$expected_file"
 
           for artifact in "${artifacts[@]}"; do
             test -s "dist/$artifact"
             grep -q "  $artifact$" dist/SHA256SUMS
+            tar -tzf "dist/$artifact" | sort > "$RUNNER_TEMP/$artifact.entries"
+            diff -u "$expected_file" "$RUNNER_TEMP/$artifact.entries"
           done
-
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./agentctl$'
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./agentctl-daemon$'
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/pre-tool-use$'
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/post-tool-use$'
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/subagent-start$'
-          tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\./hooks/subagent-stop$'

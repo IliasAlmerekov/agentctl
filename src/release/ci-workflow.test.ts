@@ -22,6 +22,8 @@ describe("CI workflow", () => {
     expect(workflow).toContain("bun run typecheck");
     expect(workflow).toContain("bun run build");
     expect(workflow).toContain(`test -s dist/${CHECKSUMS_FILE_NAME}`);
+    expect(workflow).toContain(`(cd dist && sha256sum -c ${CHECKSUMS_FILE_NAME})`);
+    expect(workflow).toContain("expected_entries=(");
 
     for (const artifact of getReleaseArtifacts()) {
       const fileName = artifact.outfile.replace("dist/", "");
@@ -31,19 +33,18 @@ describe("CI workflow", () => {
       expect(workflow).toContain(
         `grep -q "  $artifact$" dist/${CHECKSUMS_FILE_NAME}`,
       );
+      expect(workflow).toContain(`tar -tzf "dist/$artifact"`);
     }
 
     for (const path of [
-      "./agentctl",
-      "./agentctl-daemon",
-      "./hooks/pre-tool-use",
-      "./hooks/post-tool-use",
-      "./hooks/subagent-start",
-      "./hooks/subagent-stop",
+      '"./agentctl"',
+      '"./agentctl-daemon"',
+      '"./hooks/pre-tool-use"',
+      '"./hooks/post-tool-use"',
+      '"./hooks/subagent-start"',
+      '"./hooks/subagent-stop"',
     ]) {
-      expect(workflow).toContain(
-        `tar -tzf dist/agentctl-linux-x64.tar.gz | grep -q '^\\${path}$'`,
-      );
+      expect(workflow).toContain(path);
     }
   });
 });
