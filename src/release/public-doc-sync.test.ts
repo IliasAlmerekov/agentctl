@@ -37,4 +37,9 @@ describe("public docs launch sync", () => {
     const driftScript = readFileSync("scripts/check-public-doc-drift.ts", "utf8");
     expect(driftScript).toContain("/superpowers/");
   });
+
+  test("drift check excludes internal roadmap planning docs", () => {
+    const driftScript = readFileSync("scripts/check-public-doc-drift.ts", "utf8");
+    expect(driftScript).toContain("/roadmap/");
+  });
 });
