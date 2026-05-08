@@ -7,7 +7,7 @@ This checklist tracks the work required to move `agentctl` from a beta candidate
 Do not announce or direct users to the README install command until:
 
 - [ ] The public GitHub repository serves `install.sh` from `main`.
-- [ ] A tagged GitHub Release exists with all supported artifacts and `SHA256SUMS`.
+- [x] A tagged GitHub Release exists with all supported artifacts and `SHA256SUMS`.
 - [ ] A fresh machine can install from the public README command without Bun already installed.
 - [ ] The release smoke workflow proves Linux and macOS installs from the public release URL.
 
@@ -17,9 +17,9 @@ Do not announce or direct users to the README install command until:
 
 Current risk: the README install command points to `https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh`, but the public URL must be reachable before launch.
 
-- [ ] Push/merge the launch-ready branch to `main`.
+- [x] Push/merge the launch-ready branch to `main`.
 - [ ] Confirm `https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh` returns `200`.
-- [ ] Confirm `README.md` install instructions match the actual default branch.
+- [x] Confirm `README.md` install instructions match the actual default branch.
 - [x] Add a CI or scripted check that fails if the README install URL returns non-200.
 
 Private repo note: CI skips the public raw URL check while the repository is private. The same check remains wired for public `main` pushes and must pass before announcement.
@@ -44,11 +44,12 @@ Current risk: local build artifacts exist, but public install depends on GitHub 
 - [x] Ensure release workflow has only the permissions it needs, including `contents: write` for publishing.
 - [x] Allow private-repo release smoke to verify downloaded release assets before the public raw URL exists.
 - [x] Create the first beta tag, for example `v0.1.0-beta.1`.
-- [ ] Verify `AGENTCTL_VERSION=v0.1.0-beta.1` install works.
+- [x] Verify `AGENTCTL_VERSION=v0.1.0-beta.1` install works.
 
 Beta tag evidence:
 
 - `v0.1.0-beta.1` was pushed on 2026-05-07 and points at launch branch commit `117009b`.
+- The `v0.1.0-beta.1` release workflow passed in the private repository, including Linux and macOS smoke via downloaded release assets.
 - Because the repository is still private, the release smoke workflow uses downloaded release assets for private verification and keeps public raw URL smoke for public repositories.
 
 Acceptance:
@@ -267,12 +268,12 @@ AGENTCTL_VERSION=v0.1.0-beta.1 rtk proxy bash -lc 'curl -fsSL https://raw.github
 ## Definition Of Done
 
 - [ ] README install command works for real users.
-- [ ] Release artifacts are produced and published by CI.
+- [x] Release artifacts are produced and published by CI.
 - [x] Installer does not require Bun for installed-user flow.
 - [x] Checksums are verified before binaries are installed.
 - [x] Unknown-agent control commands behave honestly.
 - [x] Hook latency claim matches measured behavior.
 - [x] Download size is acceptable for a CLI tool.
-- [ ] Linux and macOS release smoke tests pass.
+- [x] Linux and macOS release smoke tests pass.
 - [x] Public docs describe only implemented and verified behavior.
-- [ ] A signed-off release tag exists.
+- [x] A signed-off release tag exists.
