@@ -2,20 +2,28 @@ import { describe, expect, test } from "bun:test";
 import { reconnectDelay, watchGuard } from "./watch.tsx";
 
 describe("watchGuard", () => {
-  test("allows TTY environments", () => {
-    expect(watchGuard(true)).toEqual({ ok: true });
+  test("allows TTY stdin and stdout", () => {
+    expect(watchGuard({ stdin: true, stdout: true })).toEqual({ ok: true });
   });
 
   test("rejects non-TTY stdout", () => {
-    expect(watchGuard(false)).toEqual({
+    expect(watchGuard({ stdin: true, stdout: false })).toEqual({
       ok: false,
       message: "agentctl watch requires a TTY",
       exitCode: 1,
     });
   });
 
-  test("rejects undefined TTY (piped output)", () => {
-    expect(watchGuard(undefined)).toEqual({
+  test("rejects non-TTY stdin (Ink raw-mode requirement)", () => {
+    expect(watchGuard({ stdin: false, stdout: true })).toEqual({
+      ok: false,
+      message: "agentctl watch requires a TTY",
+      exitCode: 1,
+    });
+  });
+
+  test("rejects undefined TTY flags (piped or closed streams)", () => {
+    expect(watchGuard({ stdin: undefined, stdout: undefined })).toEqual({
       ok: false,
       message: "agentctl watch requires a TTY",
       exitCode: 1,
