@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   formatCapResult,
+  parseCapTokens,
   renderCapResult,
   validateCapArgs,
 } from "./cap.ts";
@@ -83,5 +84,44 @@ describe("validateCapArgs", () => {
       message: "--tokens must be a positive integer",
       exitCode: 1,
     });
+  });
+});
+
+describe("parseCapTokens", () => {
+  test("accepts plain positive integer strings", () => {
+    expect(parseCapTokens("1000")).toBe(1000);
+    expect(parseCapTokens("1")).toBe(1);
+  });
+
+  test("rejects fractional input that parseInt would truncate", () => {
+    expect(parseCapTokens("100.5")).toBeNull();
+  });
+
+  test("rejects trailing garbage that parseInt would discard", () => {
+    expect(parseCapTokens("100abc")).toBeNull();
+  });
+
+  test("rejects scientific notation that parseInt would mis-handle", () => {
+    expect(parseCapTokens("1e3")).toBeNull();
+  });
+
+  test("rejects negative input", () => {
+    expect(parseCapTokens("-100")).toBeNull();
+  });
+
+  test("rejects zero", () => {
+    expect(parseCapTokens("0")).toBeNull();
+  });
+
+  test("rejects empty string", () => {
+    expect(parseCapTokens("")).toBeNull();
+  });
+
+  test("rejects whitespace", () => {
+    expect(parseCapTokens(" 100 ")).toBeNull();
+  });
+
+  test("rejects hex-style input", () => {
+    expect(parseCapTokens("0x1f")).toBeNull();
   });
 });
