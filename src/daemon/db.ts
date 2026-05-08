@@ -90,6 +90,25 @@ export function getSchemaVersion(db: Database): number | null {
   return Number.isInteger(version) ? version : null;
 }
 
+export function assertSupportedSchema(db: Database): void {
+  const tableExists = db
+    .query<{ name: string }, []>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_metadata'",
+    )
+    .get();
+  if (!tableExists) return;
+
+  const version = getSchemaVersion(db);
+  if (version === null) return;
+  if (version === CURRENT_SCHEMA_VERSION) return;
+
+  throw new Error(
+    `unsupported schema version ${version}. ` +
+      `This binary supports schema version ${CURRENT_SCHEMA_VERSION}. ` +
+      `Upgrade the daemon binary or move ~/.agentctl/agents.db aside.`,
+  );
+}
+
 export function reconcileRunningAgents(db: Database, now = Date.now()): void {
   db.run(
     "UPDATE agents SET status = 'stale', ended_at = ? WHERE status = 'running'",
@@ -103,6 +122,7 @@ export function prepareDaemonDatabase(
 ): DaemonBoot {
   const now = options.now ?? Date.now();
 
+  assertSupportedSchema(db);
   initSchema(db);
   reconcileRunningAgents(db, now);
   cleanupOldRuntimeData(db, now, options.retentionMs);

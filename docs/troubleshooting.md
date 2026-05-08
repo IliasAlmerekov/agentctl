@@ -79,6 +79,8 @@ agentctl status
 
 Use this only for local runtime cleanup. It discards agent history, pending injections, and token counters from the active DB.
 
+For full recovery instructions covering `agents.db-wal`, `agents.db-shm`, schema version policy, and the daemon failure model, see `docs/storage.md`.
+
 ## Control command says `not found`
 
 If `inject`, `cap`, or `kill` prints `not found`, the daemon has no live or historical record for that session ID. Re-run `agentctl agents` and copy the session ID from the current list. For stale sessions, start a fresh Claude Code run; agentctl does not queue future injections for unknown IDs.

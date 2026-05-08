@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_RETENTION_MS,
+  assertSupportedSchema,
   cleanupOldRuntimeData,
   getSchemaVersion,
   initSchema,
@@ -30,6 +31,69 @@ describe("database schema metadata", () => {
 
     expect(row?.value).toBe(String(CURRENT_SCHEMA_VERSION));
     expect(getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
+  });
+});
+
+describe("retention cleanup at scale", () => {
+  test("removes old tool_calls and delivered injections from a large dataset", () => {
+    const db = createTestDb();
+    const now = 1_000_000_000;
+    const old = now - 30 * 24 * 60 * 60 * 1_000;
+    const fresh = now - 60 * 1_000;
+
+    db.exec("BEGIN TRANSACTION");
+    for (let i = 0; i < 10_000; i++) {
+      db.run(
+        "INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at) VALUES (?, ?, ?, ?)",
+        [`session-${i}`, "Bash", `hash-${i}`, i % 2 === 0 ? old : fresh],
+      );
+    }
+    for (let i = 0; i < 1_000; i++) {
+      db.run(
+        "INSERT INTO injections (session_id, message, status, created_at, delivered_at) VALUES (?, ?, 'delivered', ?, ?)",
+        [`session-${i}`, `msg-${i}`, old, old],
+      );
+    }
+    db.exec("COMMIT");
+
+    cleanupOldRuntimeData(db, now);
+
+    expect(
+      db
+        .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+        .get()?.count,
+    ).toBe(5_000);
+
+    expect(
+      db
+        .query<{ count: number }, []>("SELECT COUNT(*) as count FROM injections")
+        .get()?.count,
+    ).toBe(0);
+  });
+});
+
+describe("schema version guard", () => {
+  test("accepts a database with the supported schema version", () => {
+    const db = createTestDb();
+    expect(() => assertSupportedSchema(db)).not.toThrow();
+  });
+
+  test("accepts a database with no schema_metadata table (fresh install)", () => {
+    const db = new Database(":memory:");
+    expect(() => assertSupportedSchema(db)).not.toThrow();
+  });
+
+  test("rejects a database with an unsupported future schema version", () => {
+    const db = createTestDb();
+    db.run(
+      `UPDATE schema_metadata SET value = ? WHERE key = 'schema_version'`,
+      [String(CURRENT_SCHEMA_VERSION + 1)],
+    );
+    expect(() => assertSupportedSchema(db)).toThrow(
+      `unsupported schema version ${CURRENT_SCHEMA_VERSION + 1}. ` +
+        `This binary supports schema version ${CURRENT_SCHEMA_VERSION}. ` +
+        `Upgrade the daemon binary or move ~/.agentctl/agents.db aside.`,
+    );
   });
 });
 
