@@ -77,6 +77,12 @@ export const RELEASE_BINARIES: ReleaseBinary[] = [
   },
 ];
 
+export const EXPECTED_RELEASE_ARCHIVE_FILES = RELEASE_BINARIES.map(
+  (binary) => binary.archivePath,
+);
+
+const ALLOWED_RELEASE_ARCHIVE_DIRECTORIES = new Set([".", "hooks"]);
+
 export function getReleaseArtifacts(): ReleaseArtifact[] {
   return RELEASE_PLATFORMS.map((platform) => {
     return {
@@ -117,39 +123,48 @@ export function buildReleaseArtifacts(): void {
   rmSync("dist", { recursive: true, force: true });
   mkdirSync("dist", { recursive: true });
   const binaries = getReleaseCompiledBinaries();
-
-  for (const artifact of binaries) {
-    mkdirSync(dirname(artifact.outfile), { recursive: true });
-    const result = Bun.spawnSync({
-      cmd: [process.execPath, ...artifact.args],
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-
-    if (!result.success) {
-      const label = `${artifact.binary.name}-${artifact.platform.name}`;
-      throw new Error(`Failed to build ${label} (exit ${result.exitCode})`);
-    }
-  }
-
   const artifacts = getReleaseArtifacts();
-  for (const artifact of artifacts) {
-    const stagingDir = `${RELEASE_STAGING_DIR}/${artifact.platform.name}`;
-    const result = Bun.spawnSync({
-      cmd: ["tar", "-czf", artifact.outfile, "-C", stagingDir, "."],
-      stdout: "inherit",
-      stderr: "inherit",
-    });
+  const checksumFile = `dist/${CHECKSUMS_FILE_NAME}`;
 
-    if (!result.success) {
-      throw new Error(
-        `Failed to archive ${artifact.platform.name} (exit ${result.exitCode})`,
-      );
+  try {
+    for (const artifact of binaries) {
+      mkdirSync(dirname(artifact.outfile), { recursive: true });
+      const result = Bun.spawnSync({
+        cmd: [process.execPath, ...artifact.args],
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+
+      if (!result.success) {
+        const label = `${artifact.binary.name}-${artifact.platform.name}`;
+        throw new Error(`Failed to build ${label} (exit ${result.exitCode})`);
+      }
     }
-  }
 
-  writeChecksumManifest(artifacts);
-  rmSync(RELEASE_STAGING_DIR, { recursive: true, force: true });
+    for (const artifact of artifacts) {
+      const stagingDir = `${RELEASE_STAGING_DIR}/${artifact.platform.name}`;
+      const result = Bun.spawnSync({
+        cmd: ["tar", "-czf", artifact.outfile, "-C", stagingDir, "."],
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+
+      if (!result.success) {
+        throw new Error(
+          `Failed to archive ${artifact.platform.name} (exit ${result.exitCode})`,
+        );
+      }
+    }
+
+    writeChecksumManifest(artifacts, checksumFile);
+    verifyChecksumManifest(artifacts, checksumFile);
+    verifyReleaseArtifactContents(artifacts);
+  } catch (error) {
+    cleanupReleaseArtifacts(artifacts, checksumFile);
+    throw error;
+  } finally {
+    rmSync(RELEASE_STAGING_DIR, { recursive: true, force: true });
+  }
 }
 
 export function writeChecksumManifest(
@@ -171,6 +186,141 @@ export function writeChecksumManifest(
 
   writeFileSync(outfile, `${checksums.map((item) => item.line).join("\n")}\n`);
   return checksums;
+}
+
+export function verifyChecksumManifest(
+  artifacts: ReleaseArtifact[] = getReleaseArtifacts(),
+  checksumFile = `dist/${CHECKSUMS_FILE_NAME}`,
+): void {
+  const expectedArtifactsByName = new Map(
+    artifacts.map((artifact) => [basename(artifact.outfile), artifact]),
+  );
+  const manifestLines = readFileSync(checksumFile, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.length > 0);
+  const manifestByName = new Map<string, string>();
+
+  for (const line of manifestLines) {
+    const match = line.match(/^([a-f0-9]{64})  (\S+)$/);
+    if (!match) {
+      throw new Error(`Malformed checksum manifest line: ${line}`);
+    }
+
+    const [, checksum, fileName] = match;
+    manifestByName.set(fileName, checksum);
+  }
+
+  const unexpected = [...manifestByName.keys()].filter(
+    (fileName) => !expectedArtifactsByName.has(fileName),
+  );
+  if (unexpected.length > 0) {
+    throw new Error(`Unexpected checksum entries: ${unexpected.join(", ")}`);
+  }
+
+  for (const [fileName, artifact] of expectedArtifactsByName) {
+    const expected = manifestByName.get(fileName);
+    if (!expected) {
+      throw new Error(`Missing checksum entry for ${fileName}`);
+    }
+
+    const actual = createHash("sha256")
+      .update(readFileSync(artifact.outfile))
+      .digest("hex");
+
+    if (actual !== expected) {
+      throw new Error(`Checksum mismatch for ${fileName}`);
+    }
+  }
+}
+
+function normalizeArchiveEntry(entry: string): string {
+  const withoutPrefix = entry.trim().replace(/^\.\//, "");
+  const withoutTrailingSlash = withoutPrefix.replace(/\/$/, "");
+
+  return withoutTrailingSlash === "" ? "." : withoutTrailingSlash;
+}
+
+export function assertReleaseArchiveEntries(
+  platformName: ReleasePlatform["name"] | string,
+  entries: string[],
+): void {
+  const expectedFiles = new Set(EXPECTED_RELEASE_ARCHIVE_FILES);
+  const observedFiles = new Set<string>();
+  const unexpectedEntries: string[] = [];
+
+  for (const entry of entries) {
+    const normalized = normalizeArchiveEntry(entry);
+    if (ALLOWED_RELEASE_ARCHIVE_DIRECTORIES.has(normalized)) {
+      continue;
+    }
+
+    if (expectedFiles.has(normalized)) {
+      observedFiles.add(normalized);
+      continue;
+    }
+
+    unexpectedEntries.push(normalized);
+  }
+
+  const missingEntries = EXPECTED_RELEASE_ARCHIVE_FILES.filter(
+    (entry) => !observedFiles.has(entry),
+  );
+
+  if (unexpectedEntries.length > 0) {
+    throw new Error(
+      `Unexpected release archive entries for ${platformName}: ${unexpectedEntries.join(
+        ", ",
+      )}`,
+    );
+  }
+
+  if (missingEntries.length > 0) {
+    throw new Error(
+      `Missing release archive entries for ${platformName}: ${missingEntries.join(
+        ", ",
+      )}`,
+    );
+  }
+}
+
+export function verifyReleaseArtifactContents(
+  artifacts: ReleaseArtifact[] = getReleaseArtifacts(),
+): void {
+  for (const artifact of artifacts) {
+    const result = Bun.spawnSync({
+      cmd: ["tar", "-tzf", artifact.outfile],
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    if (!result.success) {
+      const stderr = new TextDecoder().decode(result.stderr).trim();
+      throw new Error(
+        `Failed to inspect ${artifact.outfile} (exit ${result.exitCode})${
+          stderr ? `: ${stderr}` : ""
+        }`,
+      );
+    }
+
+    const entries = new TextDecoder()
+      .decode(result.stdout)
+      .split(/\r?\n/)
+      .filter((entry) => entry.length > 0);
+    assertReleaseArchiveEntries(artifact.platform.name, entries);
+  }
+}
+
+export function cleanupReleaseArtifacts(
+  artifacts: ReleaseArtifact[] = getReleaseArtifacts(),
+  checksumFile = `dist/${CHECKSUMS_FILE_NAME}`,
+  stagingDir = RELEASE_STAGING_DIR,
+): void {
+  rmSync(stagingDir, { recursive: true, force: true });
+  rmSync(checksumFile, { force: true });
+
+  for (const artifact of artifacts) {
+    rmSync(artifact.outfile, { force: true });
+  }
 }
 
 if (import.meta.main) {

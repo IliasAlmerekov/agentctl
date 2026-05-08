@@ -19,6 +19,22 @@ Each supported platform must publish one release archive plus `SHA256SUMS`. The 
 - `hooks/subagent-start`
 - `hooks/subagent-stop`
 
+## Release build prerequisites
+
+Release artifact generation is reproducible only when the build environment has
+the required tooling available before `bun run build` starts:
+
+- Bun 1.3.13, matching the GitHub Actions release workflow.
+- `tar`, used to create and inspect `agentctl-*.tar.gz` archives.
+- network access for Bun compile targets, unless they are already present in
+  the local Bun cache.
+- `sha256sum` or `shasum`, used by the installer to verify downloaded release
+  archives against `SHA256SUMS`.
+
+If Bun cannot download a compile target, the build must fail without publishing
+partial release archives. The release build cleans the staging directory,
+removes partial `agentctl-*.tar.gz` files, and removes `SHA256SUMS` on failure.
+
 ## Unsupported platforms
 
 - Windows packaging is not supported.

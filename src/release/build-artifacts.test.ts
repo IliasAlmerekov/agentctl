@@ -1,11 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
   CHECKSUMS_FILE_NAME,
+  EXPECTED_RELEASE_ARCHIVE_FILES,
   RELEASE_PLATFORMS,
+  assertReleaseArchiveEntries,
+  cleanupReleaseArtifacts,
   getReleaseArtifacts,
+  verifyChecksumManifest,
   writeChecksumManifest,
   type ReleaseArtifact,
 } from "./build-artifacts.ts";
@@ -41,6 +51,58 @@ describe("release artifact manifest", () => {
       "bun-darwin-x64",
       "bun-linux-x64",
     ]);
+  });
+
+  test("defines the exact expected archive payload files", () => {
+    expect(EXPECTED_RELEASE_ARCHIVE_FILES).toEqual([
+      "agentctl",
+      "agentctl-daemon",
+      "hooks/pre-tool-use",
+      "hooks/post-tool-use",
+      "hooks/subagent-start",
+      "hooks/subagent-stop",
+    ]);
+  });
+
+  test("accepts only the exact release archive file payload plus directories", () => {
+    expect(() =>
+      assertReleaseArchiveEntries("linux-x64", [
+        "./",
+        "./agentctl",
+        "./agentctl-daemon",
+        "./hooks/",
+        "./hooks/pre-tool-use",
+        "./hooks/post-tool-use",
+        "./hooks/subagent-start",
+        "./hooks/subagent-stop",
+      ]),
+    ).not.toThrow();
+
+    expect(() =>
+      assertReleaseArchiveEntries("linux-x64", [
+        "./",
+        "./agentctl",
+        "./agentctl-daemon",
+        "./hooks/",
+        "./hooks/pre-tool-use",
+        "./hooks/post-tool-use",
+        "./hooks/subagent-start",
+        "./hooks/subagent-stop",
+        "./README.md",
+      ]),
+    ).toThrow("Unexpected release archive entries for linux-x64: README.md");
+
+    expect(() =>
+      assertReleaseArchiveEntries("linux-x64", [
+        "./",
+        "./agentctl",
+        "./agentctl-daemon",
+        "./hooks/",
+        "./hooks/pre-tool-use",
+        "./hooks/post-tool-use",
+        "./hooks/subagent-start",
+      ]),
+    ).toThrow("Missing release archive entries for linux-x64: hooks/subagent-stop");
   });
 
   test("bundles Ink's optional devtools peer for CLI release builds", async () => {
@@ -91,5 +153,60 @@ describe("release checksum manifest", () => {
         "",
       ].join("\n"),
     );
+  });
+
+  test("verifies checksum manifest names and hashes exactly", () => {
+    const dir = mkdtempSync(join(tmpdir(), "agentctl-release-"));
+    const first = join(dir, "agentctl-linux-x64.tar.gz");
+    const second = join(dir, "agentctl-darwin-arm64.tar.gz");
+    const checksumFile = join(dir, CHECKSUMS_FILE_NAME);
+    writeFileSync(first, "first artifact");
+    writeFileSync(second, "second artifact");
+
+    const artifacts = [
+      { outfile: first },
+      { outfile: second },
+    ] as ReleaseArtifact[];
+
+    writeChecksumManifest(artifacts, checksumFile);
+
+    expect(() => verifyChecksumManifest(artifacts, checksumFile)).not.toThrow();
+
+    writeFileSync(
+      checksumFile,
+      [
+        "69f6245a92f0c902e45cfd6e99297cad3e536598237b6ef3d04fbb59c8a3b095  agentctl-linux-x64.tar.gz",
+        `${"0".repeat(64)}  agentctl-darwin-arm64.tar.gz`,
+        "",
+      ].join("\n"),
+    );
+
+    expect(() => verifyChecksumManifest(artifacts, checksumFile)).toThrow(
+      "Checksum mismatch for agentctl-darwin-arm64.tar.gz",
+    );
+  });
+
+  test("cleans partial release outputs without deleting unrelated dist files", () => {
+    const dir = mkdtempSync(join(tmpdir(), "agentctl-release-cleanup-"));
+    const releaseDir = join(dir, ".release");
+    const linuxArchive = join(dir, "agentctl-linux-x64.tar.gz");
+    const checksumFile = join(dir, CHECKSUMS_FILE_NAME);
+    const unrelated = join(dir, "manual-note.txt");
+    mkdirSync(releaseDir, { recursive: true });
+    writeFileSync(join(releaseDir, "partial"), "partial build");
+    writeFileSync(linuxArchive, "partial archive");
+    writeFileSync(checksumFile, "partial checksums");
+    writeFileSync(unrelated, "keep me");
+
+    cleanupReleaseArtifacts(
+      [{ outfile: linuxArchive }] as ReleaseArtifact[],
+      checksumFile,
+      releaseDir,
+    );
+
+    expect(existsSync(releaseDir)).toBe(false);
+    expect(existsSync(linuxArchive)).toBe(false);
+    expect(existsSync(checksumFile)).toBe(false);
+    expect(existsSync(unrelated)).toBe(true);
   });
 });

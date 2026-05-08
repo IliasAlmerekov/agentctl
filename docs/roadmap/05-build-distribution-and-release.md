@@ -35,16 +35,16 @@
 
 ## Work items
 
-- [ ] P0 / Blocked — make `bun run check:public-install-url` pass against public `main` URL.
-- [ ] P0 / Blocked — make `bun run smoke:install` pass from local release artifacts on Linux x64.
+- [ ] P0 / Blocked — make `bun run check:public-install-url` pass against public `main` URL. 2026-05-08: with network allowed, the check returned `404` because the repository is still private; no local code fix is expected until the public switch/main URL is reachable.
+- [x] P0 / Done — make `bun run smoke:install` pass from local release artifacts on Linux x64. 2026-05-08: passed on `Linux-x86_64` after allowing Bun to download missing compile targets.
 - [ ] P0 / Blocked — verify release smoke on macOS runner using GitHub Actions or equivalent logged evidence.
-- [ ] P0 / Not started — verify `bun run build` in clean environment where required Bun compile targets are already available or downloadable.
-- [ ] P0 / Not started — inspect every `dist/agentctl-*.tar.gz` archive and verify exact expected file list.
-- [ ] P0 / Not started — verify `SHA256SUMS` entries match archive names and checksums before install.
-- [ ] P1 / Not started — document build environment prerequisites: Bun version, `tar`, network access for compile targets, supported OS/arch.
-- [ ] P1 / Not started — verify failed build cleanup behavior and ensure release artifacts are not published from partial `dist`.
-- [ ] P1 / Not started — verify `package.json` version, CLI `.version("0.1.0")`, changelog and release tag strategy converge before `v1.0.0`.
-- [ ] P0 / Not started — изменить `release.yml`: smoke должен проходить до публикации релиза. Текущий workflow публикует через `gh release create` в job `publish-release`, а `release-smoke` запускается только после (`needs: publish-release`). Если smoke падает — плохой релиз уже публичен. Исправление: `gh release create --draft`, затем `gh release edit --draft=false` только после того, как все smoke матрицы прошли.
+- [x] P0 / Done — verify `bun run build` in clean environment where required Bun compile targets are already available or downloadable. 2026-05-08: passed with `PATH="$HOME/.bun/bin:/usr/bin:/bin"`; sandboxed network initially failed target download, escalated network succeeded.
+- [x] P0 / Done — inspect every `dist/agentctl-*.tar.gz` archive and verify exact expected file list. Release build now enforces the exact archive payload before succeeding; CI checks all archives, not only Linux.
+- [x] P0 / Done — verify `SHA256SUMS` entries match archive names and checksums before install. Release build verifies the manifest after writing it; CI runs `sha256sum -c` inside `dist`.
+- [x] P1 / Done — document build environment prerequisites: Bun version, `tar`, network access for compile targets, supported OS/arch. Covered in `docs/platforms.md`.
+- [x] P1 / Done — verify failed build cleanup behavior and ensure release artifacts are not published from partial `dist`. Release build removes staging, partial archives and `SHA256SUMS` on failure; regression coverage is in `src/release/build-artifacts.test.ts`.
+- [ ] P1 / Blocked — verify `package.json` version, CLI `.version("0.1.0")`, changelog and release tag strategy converge before `v1.0.0`. Current project surfaces still intentionally describe the first public beta; final `v1.0.0` version bump/tag remains a release-gate task.
+- [x] P0 / Done — изменить `release.yml`: smoke должен проходить до публикации релиза. Workflow creates a draft release first, runs `release-smoke` against draft assets on Linux and macOS, then promotes with `gh release edit --draft=false` only after smoke passes.
 - [ ] P1 / Not started — run release workflow rehearsal that does not publish external artifacts unless intentionally triggered by a protected tag.
 
 ## Acceptance criteria
@@ -73,7 +73,7 @@ AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smok
 
 ## Release impact
 
-Эта фаза является P0 для first public release artifacts. Пока public URL, smoke install или build reproducibility не проходят, `v1.0.0` tag остается blocked.
+Эта фаза является P0 для first public release artifacts. Local Linux artifact generation, checksum verification, archive inspection and install smoke are now reproducible. `v1.0.0` tag remains blocked until the repository is public, the public `main` installer URL returns 200, macOS release smoke evidence exists, and final version/tag surfaces are intentionally updated.
 
 ## Dependencies / ordering
 
@@ -85,4 +85,3 @@ AGENTCTL_VERSION=v1.0.0 rtk env PATH="$HOME/.bun/bin:/usr/bin:/bin" bun run smok
 - Как фиксировать evidence для macOS smoke: GitHub Actions run ID, local maintainer machine или оба.
 - Должен ли `v1.0.0` tag использовать generated GitHub release notes или curated `docs/release-notes.md`.
 - Какой exact Bun version policy действует для Production v1.0.0.
-
