@@ -33,7 +33,7 @@
 |---|---|---|---|
 | 00 Audit baseline | P0 | Done | Фиксирует verified source of truth для v1 planning. |
 | 01 Public repository readiness | P0 | Done | Блокирует переключение репозитория из private в public. |
-| 02 Runtime architecture hardening | P1 | Not started | Закрывает daemon/TUI/WebSocket/runtime robustness gaps. |
+| 02 Runtime architecture hardening | P1 | Done | Закрывает daemon/TUI/WebSocket/runtime robustness gaps. |
 | 03 Data integrity and storage | P1 | Not started | Закрывает migration, recovery и compatibility confidence. |
 | 04 Security and local attack surface | P0 | Not started | Закрывает validation, local attack surface и supply-chain exposure. |
 | 05 Build distribution and release | P0 | Blocked | Блокируется непрошедшими public URL, smoke и hook latency checks. |
@@ -58,7 +58,7 @@ agentctl считается Production v1.0.0, когда одновременн
 - [x] P0 / Done — `LICENSE` и public package metadata присутствуют и проверены.
 - [ ] P0 / Blocked — `bun run check:public-install-url` проходит против публичного `main`.
 - [ ] P0 / Blocked — `bun run smoke:install` проходит на Linux x64 и macOS runner.
-- [ ] P0 / Blocked — `bun run measure:hooks` проходит при свободном `127.0.0.1:47823` и фиксирует p95 в documented budget.
+- [x] P0 / Done — `bun run measure:hooks` проходит при свободном `127.0.0.1:47823` и фиксирует p95 в documented budget.
 - [ ] P0 / Not started — public-facing tracked docs не содержат незакрытого launch planning состояния.
 - [ ] P0 / Not started — `bun install --frozen-lockfile`, `bun test`, `bun run typecheck`, `bun run build` проходят в clean environment.
 - [ ] P0 / Not started — release artifacts inspected: archive composition, executable files, checksums.
