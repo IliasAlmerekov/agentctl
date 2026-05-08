@@ -34,7 +34,7 @@
 | 00 Audit baseline | P0 | Done | Фиксирует verified source of truth для v1 planning. |
 | 01 Public repository readiness | P0 | Done | Блокирует переключение репозитория из private в public. |
 | 02 Runtime architecture hardening | P1 | Done | Закрывает daemon/TUI/WebSocket/runtime robustness gaps. |
-| 03 Data integrity and storage | P1 | Not started | Закрывает migration, recovery и compatibility confidence. |
+| 03 Data integrity and storage | P1 | Done | Закрывает migration, recovery и compatibility confidence. |
 | 04 Security and local attack surface | P0 | Not started | Закрывает validation, local attack surface и supply-chain exposure. |
 | 05 Build distribution and release | P0 | Blocked | Блокируется непрошедшими public URL, smoke и hook latency checks. |
 | 06 Test strategy for v1 | P1 | Not started | Делает v1 gates воспроизводимыми в local и CI. |
