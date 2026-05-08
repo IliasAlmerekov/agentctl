@@ -7,6 +7,27 @@ type CapCommandRender = {
   exitCode: 0 | 1;
 };
 
+type ValidationResult =
+  | { ok: true }
+  | { ok: false; message: string; exitCode: 1 };
+
+export function validateCapArgs(
+  sessionId: string,
+  tokens: number,
+): ValidationResult {
+  if (!sessionId.trim()) {
+    return { ok: false, message: "session id cannot be empty", exitCode: 1 };
+  }
+  if (!Number.isInteger(tokens) || tokens <= 0) {
+    return {
+      ok: false,
+      message: "--tokens must be a positive integer",
+      exitCode: 1,
+    };
+  }
+  return { ok: true };
+}
+
 export function formatCapResult(
   sessionId: string,
   result: CapResult,
@@ -35,6 +56,12 @@ export function renderCapResult(
 }
 
 export async function cmdCap(sessionId: string, tokens: number) {
+  const validation = validateCapArgs(sessionId, tokens);
+  if (!validation.ok) {
+    console.error(`✗ ${validation.message}`);
+    process.exit(validation.exitCode);
+  }
+
   try {
     const result = await apiCap(sessionId, tokens);
     const rendered = renderCapResult(sessionId, result);

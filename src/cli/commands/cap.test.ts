@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { formatCapResult, renderCapResult } from "./cap.ts";
+import {
+  formatCapResult,
+  renderCapResult,
+  validateCapArgs,
+} from "./cap.ts";
 
 describe("formatCapResult", () => {
   test("formats token budget confirmations with a short session label", () => {
@@ -31,6 +35,52 @@ describe("renderCapResult", () => {
     })).toEqual({
       message: "✗ Agent missing- not found",
       stream: "stderr",
+      exitCode: 1,
+    });
+  });
+});
+
+describe("validateCapArgs", () => {
+  test("accepts positive integer tokens", () => {
+    expect(validateCapArgs("session-x", 1000)).toEqual({ ok: true });
+  });
+
+  test("rejects empty session id", () => {
+    expect(validateCapArgs("", 100)).toEqual({
+      ok: false,
+      message: "session id cannot be empty",
+      exitCode: 1,
+    });
+  });
+
+  test("rejects NaN tokens", () => {
+    expect(validateCapArgs("session-x", NaN)).toEqual({
+      ok: false,
+      message: "--tokens must be a positive integer",
+      exitCode: 1,
+    });
+  });
+
+  test("rejects zero tokens", () => {
+    expect(validateCapArgs("session-x", 0)).toEqual({
+      ok: false,
+      message: "--tokens must be a positive integer",
+      exitCode: 1,
+    });
+  });
+
+  test("rejects negative tokens", () => {
+    expect(validateCapArgs("session-x", -100)).toEqual({
+      ok: false,
+      message: "--tokens must be a positive integer",
+      exitCode: 1,
+    });
+  });
+
+  test("rejects fractional tokens", () => {
+    expect(validateCapArgs("session-x", 100.5)).toEqual({
+      ok: false,
+      message: "--tokens must be a positive integer",
       exitCode: 1,
     });
   });

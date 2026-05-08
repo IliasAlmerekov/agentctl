@@ -27,3 +27,33 @@ This protects the daemon from unauthenticated local HTTP clients that cannot rea
 - Hook failures, malformed hook input, daemon outages, and auth failures fail open so Claude Code does not become unusable.
 
 Use agentctl as an operator control layer for local Claude Code sessions. Do not treat it as a boundary against untrusted code running on the same account.
+
+## Request limits
+
+The daemon enforces these limits on incoming HTTP requests to bound resource use:
+
+| Endpoint class | Body limit | On overflow |
+| --- | --- | --- |
+| Control endpoints (`/inject`, `/cap`, `/kill`, `/agents`, `/status`) | 1 MB | `413 Payload Too Large` |
+| Hook endpoints (`/hook/pre`, `/hook/post`, `/hook/subagent-start`, `/hook/subagent-stop`) | 10 MB | `413 Payload Too Large` (hook client stays fail-open and exits 0) |
+| Injection message body field | 64 KB UTF-8 bytes | `400 Bad Request` |
+
+Malformed JSON returns `400 Bad Request` with `{"ok": false, "error": "invalid json"}` rather than crashing the request handler.
+
+CLI commands `inject` and `cap` validate input client-side before contacting the daemon: empty session id, empty injection message, oversized injection message, non-positive or non-integer token cap all exit non-zero with an actionable error.
+
+## Log redaction policy
+
+The daemon never logs:
+
+- The contents of `~/.agentctl/auth-token`.
+- WebSocket request URLs, which carry the token as a `token=...` query parameter.
+- Raw injection messages or tool payloads beyond what local operator UIs intentionally surface.
+
+Startup logs are limited to the listening host/port. The auth token is loaded into memory and used for header/query equality checks; it is never echoed to stdout or stderr.
+
+The token-as-query-parameter pattern for WebSocket auth is an accepted local-only tradeoff: WebSockets cannot send custom headers from browsers, and on a single-user loopback interface the only entity that can read the URL is code already running as the same user (which can also read the token file directly).
+
+## Supply-chain check
+
+Run `bun run audit` (alias for `bun audit`) to check installed dependencies against the npm advisory database. The current release verified `No vulnerabilities found`.

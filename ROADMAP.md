@@ -35,7 +35,7 @@
 | 01 Public repository readiness | P0 | Done | Блокирует переключение репозитория из private в public. |
 | 02 Runtime architecture hardening | P1 | Done | Закрывает daemon/TUI/WebSocket/runtime robustness gaps. |
 | 03 Data integrity and storage | P1 | Done | Закрывает migration, recovery и compatibility confidence. |
-| 04 Security and local attack surface | P0 | Not started | Закрывает validation, local attack surface и supply-chain exposure. |
+| 04 Security and local attack surface | P0 | Done | Закрывает validation, local attack surface и supply-chain exposure. |
 | 05 Build distribution and release | P0 | Blocked | Блокируется непрошедшими public URL, smoke и hook latency checks. |
 | 06 Test strategy for v1 | P1 | Not started | Делает v1 gates воспроизводимыми в local и CI. |
 | 07 Documentation and onboarding | P1 | Not started | Делает external-user docs точными и проверяемыми. |
