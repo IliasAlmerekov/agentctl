@@ -37,7 +37,7 @@
 | 03 Data integrity and storage | P1 | Done | Закрывает migration, recovery и compatibility confidence. |
 | 04 Security and local attack surface | P0 | Done | Закрывает validation, local attack surface и supply-chain exposure. |
 | 05 Build distribution and release | P0 | Blocked | Local Linux build/smoke, archive inspection and checksums done; blocked by private-repo public URL, macOS runner evidence and final version/tag gate. |
-| 06 Test strategy for v1 | P1 | Not started | Делает v1 gates воспроизводимыми в local и CI. |
+| 06 Test strategy for v1 | P1 | Done | Делает v1 gates воспроизводимыми в local и CI through `docs/test-strategy.md`. |
 | 07 Documentation and onboarding | P1 | Not started | Делает external-user docs точными и проверяемыми. |
 | 08 v1 release gates | P0 | Not started | Определяет final go/no-go перед `v1.0.0` tag. |
 
@@ -62,6 +62,7 @@ agentctl считается Production v1.0.0, когда одновременн
 - [ ] P0 / Not started — public-facing tracked docs не содержат незакрытого launch planning состояния.
 - [ ] P0 / In progress — `bun install --frozen-lockfile`, `bun test`, `bun run typecheck`, `bun run build` проходят в clean environment. 2026-05-08: all four commands passed locally with Bun available; clean-runner CI evidence still required.
 - [x] P0 / Done — release artifacts inspected: archive composition, executable files, checksums.
+- [x] P1 / Done — v1 test strategy documented in `docs/test-strategy.md`: mandatory commands, coverage ownership, manual TUI/macOS checklist, lint policy and test taxonomy.
 - [ ] P0 / Not started — GitHub Actions release path проверен dry-run или tag-protected rehearsal без непреднамеренной публикации.
 
 ## Non-Goals For v1.0.0
