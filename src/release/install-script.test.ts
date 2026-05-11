@@ -524,7 +524,7 @@ describe("install.sh dry run", () => {
       env: {
         ...process.env,
         AGENTCTL_INSTALL_DRY_RUN: "1",
-        AGENTCTL_VERSION: "v0.1.0-beta.2",
+        AGENTCTL_VERSION: "v0.2.0",
         HOME: homeDir,
       },
       stdout: "pipe",
@@ -536,12 +536,12 @@ describe("install.sh dry run", () => {
 
     expect(result.success).toBe(true);
     expect(stderr).toBe("");
-    expect(stdout).toContain("Dry run: would install agentctl v0.1.0-beta.2 for");
+    expect(stdout).toContain("Dry run: would install agentctl v0.2.0 for");
     expect(stdout).toContain(
-      "Dry run: would download release artifacts from https://github.com/IliasAlmerekov/agentctl/releases/download/v0.1.0-beta.2",
+      "Dry run: would download release artifacts from https://github.com/IliasAlmerekov/agentctl/releases/download/v0.2.0",
     );
     expect(stdout).not.toContain(
-      "https://github.com/IliasAlmerekov/agentctl/releases/v0.1.0-beta.2/download",
+      "https://github.com/IliasAlmerekov/agentctl/releases/v0.2.0/download",
     );
   });
 });

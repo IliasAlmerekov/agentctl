@@ -1,7 +1,7 @@
 # User Onboarding
 
-This is the external-user path for the first public beta. It assumes a supported
-platform and a GitHub Release with the matching archive already exists.
+This is the external-user path for the `0.2.0` public beta. It assumes a
+supported platform and a GitHub Release with the matching archive already exists.
 
 ## Install
 
@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/instal
 Pin a release when you do not want `latest`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.1.0-beta.1 bash
+curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.2.0 bash
 ```
 
 After install, restart the shell or source the rc file updated by the installer,

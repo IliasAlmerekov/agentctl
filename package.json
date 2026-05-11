@@ -1,6 +1,6 @@
 {
   "name": "agentctl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sub-agent control plane for Claude Code",
   "license": "MIT",
   "repository": {

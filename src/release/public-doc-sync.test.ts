@@ -7,7 +7,7 @@ describe("public docs launch sync", () => {
 
     for (const requiredText of [
       "## Beta status",
-      "first public beta",
+      "`0.2.0` public beta",
       "macOS Apple Silicon",
       "macOS Intel",
       "Linux x64",

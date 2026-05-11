@@ -1,7 +1,6 @@
-# First Public Beta Release Notes
+# 0.2.0 Public Beta Release Notes
 
-These notes describe the intended first public beta shape for agentctl. The
-tagged release entry is created when the beta tag is cut.
+These notes describe the `v0.2.0` public beta shape for agentctl.
 
 ## What Works
 
@@ -17,8 +16,8 @@ Unknown session IDs return `not_found` for `inject`, `cap`, and `kill`.
 
 ## Supported Platforms
 
-The first public beta publishes one archive plus `SHA256SUMS` for each supported
-platform:
+The `v0.2.0` public beta publishes one archive plus `SHA256SUMS` for each
+supported platform:
 
 - macOS Apple Silicon: `agentctl-darwin-arm64.tar.gz`
 - macOS Intel: `agentctl-darwin-x64.tar.gz`
