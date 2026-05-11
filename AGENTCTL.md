@@ -687,7 +687,7 @@ Hooks are compiled to standalone binaries (`bun build --compile`) so Claude Code
 ```json
 {
   "name": "agentctl",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "dev:daemon": "bun run --watch src/daemon/server.ts",
     "build:hooks": "bun build --compile --target bun src/hooks/pre-tool-use.ts --outfile dist/hooks/pre-tool-use && ...",

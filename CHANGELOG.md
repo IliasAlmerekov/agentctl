@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-agentctl is preparing its first public beta. No tagged public beta release has
-been published from this branch yet.
+No unreleased changes yet.
 
-Current documented release shape:
+## 0.2.0 - 2026-05-08
+
+agentctl's public beta release shape:
 
 - Public installer: `curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | bash`
 - Release archives: `agentctl-darwin-arm64.tar.gz`, `agentctl-darwin-x64.tar.gz`, and `agentctl-linux-x64.tar.gz`
@@ -13,5 +14,3 @@ Current documented release shape:
 - Installed-user runtime: compiled binaries only; Bun is development-only
 - Recovery docs: `docs/troubleshooting.md`
 - Launch release notes: `docs/release-notes.md`
-
-The tagged beta entry is created when the first beta tag is cut.

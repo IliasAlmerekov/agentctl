@@ -13,7 +13,7 @@ All four files belong to the same single-daemon control plane. Move them aside o
 
 ## Schema version
 
-agentctl v1.0.0 supports schema version 1 only. The daemon records the version in the `schema_metadata` table on first start.
+agentctl `0.2.0` supports schema version 1 only. The daemon records the version in the `schema_metadata` table on first start.
 
 If the database contains a different schema version, the daemon refuses to start with an actionable error like:
 

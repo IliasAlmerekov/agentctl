@@ -8,7 +8,7 @@ describe("public launch release notes", () => {
     const notes = readFileSync(RELEASE_NOTES, "utf8");
 
     for (const requiredText of [
-      "First Public Beta Release Notes",
+      "0.2.0 Public Beta Release Notes",
       "`agentctl agents`",
       "`agentctl watch`",
       "`agentctl status`",

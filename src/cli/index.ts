@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("agentctl")
   .description("Sub-agent control plane for Claude Code")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("agents")
