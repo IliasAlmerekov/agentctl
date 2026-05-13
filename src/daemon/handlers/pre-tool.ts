@@ -1,5 +1,5 @@
 import { detectLoop, hashArgs } from "../loop-detector.ts";
-import { getAgent, isBudgetExceeded } from "../budget.ts";
+import { ensureAgent, getAgent, isBudgetExceeded } from "../budget.ts";
 import { getPendingInjection, markDelivered } from "../injections.ts";
 import type { Database } from "bun:sqlite";
 import type {
@@ -14,6 +14,8 @@ export function handlePreTool(
   broadcast?: (event: AgentEvent) => void,
 ): DaemonDecision {
   const { session_id, tool_name, tool_input } = input;
+
+  ensureAgent(db, session_id);
 
   // 1. Token budget check
   const agent = getAgent(db, session_id);

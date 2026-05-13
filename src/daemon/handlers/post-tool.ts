@@ -1,4 +1,4 @@
-import { addTokens, getAgent } from "../budget.ts";
+import { addTokens, ensureAgent, getAgent } from "../budget.ts";
 import type { Database } from "bun:sqlite";
 import type { PostToolUseInput, AgentEvent } from "../../types.ts";
 import { getAgents } from "../db.ts";
@@ -16,6 +16,8 @@ export function handlePostTool(
   broadcast: (event: AgentEvent) => void,
 ): { ok: boolean } {
   const { session_id, tool_input, tool_response, tokens_used } = input;
+
+  ensureAgent(db, session_id);
 
   const delta = tokens_used ?? estimateTokens(tool_input, tool_response);
   addTokens(db, session_id, delta);
