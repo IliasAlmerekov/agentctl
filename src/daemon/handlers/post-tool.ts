@@ -1,7 +1,7 @@
 import { addTokens, ensureAgent, getAgent } from "../budget.ts";
 import type { Database } from "bun:sqlite";
 import type { PostToolUseInput, AgentEvent } from "../../types.ts";
-import { getAgents } from "../db.ts";
+import { clearCurrentTool, getAgents } from "../db.ts";
 
 // Rough estimate: ~4 chars per token for tool I/O
 function estimateTokens(input: unknown, response: unknown): number {
@@ -21,6 +21,7 @@ export function handlePostTool(
 
   const delta = tokens_used ?? estimateTokens(tool_input, tool_response);
   addTokens(db, session_id, delta);
+  clearCurrentTool(db, session_id);
 
   const agent = getAgent(db, session_id);
   const budgetReached =

@@ -62,6 +62,11 @@ export function initSchema(db: Database): void {
       value       TEXT NOT NULL,
       updated_at  INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS agent_runtime (
+      session_id     TEXT PRIMARY KEY REFERENCES agents(session_id) ON DELETE CASCADE,
+      current_tool   TEXT
+    );
   `);
   recordSchemaVersion(db);
 }
@@ -129,9 +134,14 @@ export function prepareDaemonDatabase(
 
   assertSupportedSchema(db);
   initSchema(db);
+  clearRuntimeAgentState(db);
   reconcileRunningAgents(db, now);
   cleanupOldRuntimeData(db, now, options.retentionMs);
   return startDaemonRuntime(db, options.bootId, now);
+}
+
+export function clearRuntimeAgentState(db: Database): void {
+  db.run("DELETE FROM agent_runtime");
 }
 
 export function startDaemonRuntime(
@@ -183,12 +193,38 @@ export function getAgents(db: Database): Agent[] {
   return db
     .query<Agent, []>(
       `SELECT
-        session_id, parent_id, description, status,
-        depth, tokens_used, token_budget, started_at, ended_at,
-        NULL as current_tool
+        agents.session_id,
+        agents.parent_id,
+        agents.description,
+        agents.status,
+        agents.depth,
+        agents.tokens_used,
+        agents.token_budget,
+        agents.started_at,
+        agents.ended_at,
+        agent_runtime.current_tool
        FROM agents
+       LEFT JOIN agent_runtime ON agent_runtime.session_id = agents.session_id
        ORDER BY started_at DESC
        LIMIT 100`,
     )
     .all();
+}
+
+export function setCurrentTool(
+  db: Database,
+  sessionId: string,
+  toolName: string,
+): void {
+  db.run(
+    `INSERT INTO agent_runtime (session_id, current_tool)
+     VALUES (?, ?)
+     ON CONFLICT(session_id) DO UPDATE SET
+       current_tool = excluded.current_tool`,
+    [sessionId, toolName],
+  );
+}
+
+export function clearCurrentTool(db: Database, sessionId: string): void {
+  db.run("DELETE FROM agent_runtime WHERE session_id = ?", [sessionId]);
 }

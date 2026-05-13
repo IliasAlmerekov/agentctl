@@ -5,6 +5,7 @@ import {
   DEFAULT_RETENTION_MS,
   assertSupportedSchema,
   cleanupOldRuntimeData,
+  getAgents,
   getSchemaVersion,
   initSchema,
   prepareDaemonDatabase,
@@ -31,6 +32,35 @@ describe("database schema metadata", () => {
 
     expect(row?.value).toBe(String(CURRENT_SCHEMA_VERSION));
     expect(getSchemaVersion(db)).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  test("includes runtime current_tool values in getAgents", () => {
+    const db = createTestDb();
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_runtime (
+        session_id TEXT PRIMARY KEY,
+        current_tool TEXT
+      );
+    `);
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["tool-session", 1_000],
+    );
+    db.run(
+      `INSERT INTO agent_runtime (session_id, current_tool)
+       VALUES (?, ?)`,
+      ["tool-session", "Bash"],
+    );
+
+    const agents = getAgents(db);
+
+    expect(agents).toEqual([
+      expect.objectContaining({
+        session_id: "tool-session",
+        current_tool: "Bash",
+      }),
+    ]);
   });
 });
 
@@ -127,6 +157,12 @@ describe("daemon database startup reconciliation", () => {
     const db = createTestDb();
     const now = 20_000;
     const old = 10_000;
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_runtime (
+        session_id TEXT PRIMARY KEY,
+        current_tool TEXT
+      );
+    `);
 
     db.run(
       `INSERT INTO agents (session_id, status, started_at, ended_at)
@@ -146,6 +182,10 @@ describe("daemon database startup reconciliation", () => {
        ('old-delivered', 'old delivered', 'delivered', ?, ?),
        ('old-pending', 'old pending', 'pending', ?, NULL)`,
       [old, old, old],
+    );
+    db.run(
+      `INSERT INTO agent_runtime (session_id, current_tool)
+       VALUES ('running-session', 'Bash')`,
     );
 
     const boot = prepareDaemonDatabase(db, {
@@ -169,6 +209,11 @@ describe("daemon database startup reconciliation", () => {
         "SELECT session_id, status FROM injections ORDER BY session_id",
       )
       .all();
+    const runtimeCount = db
+      .query<{ count: number }, []>(
+        "SELECT COUNT(*) as count FROM agent_runtime",
+      )
+      .get();
     const recordedBoot = db
       .query<{ boot_id: string; started_at: number; heartbeat_at: number }, []>(
         "SELECT boot_id, started_at, heartbeat_at FROM daemon_boots",
@@ -182,6 +227,7 @@ describe("daemon database startup reconciliation", () => {
     ]);
     expect(toolCallCount?.count).toBe(0);
     expect(injections).toEqual([{ session_id: "old-pending", status: "pending" }]);
+    expect(runtimeCount?.count).toBe(0);
     expect(boot).toEqual({
       boot_id: "restart-boot",
       started_at: now,
