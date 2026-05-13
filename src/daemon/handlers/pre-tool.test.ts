@@ -47,6 +47,45 @@ describe("handlePreTool", () => {
     expect(row?.started_at).toBeNumber();
   });
 
+  test("records the current tool for allowed sessions and broadcasts agents_update", () => {
+    const db = createTestDb();
+    const events: AgentEvent[] = [];
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_runtime (
+        session_id TEXT PRIMARY KEY,
+        current_tool TEXT
+      );
+    `);
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["tool-session", Date.now()],
+    );
+
+    const decision = handlePreTool(
+      {
+        session_id: "tool-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+      },
+      db,
+      (event) => events.push(event),
+    );
+    const runtime = db
+      .query<{ current_tool: string | null }, string>(
+        "SELECT current_tool FROM agent_runtime WHERE session_id = ?",
+      )
+      .get("tool-session");
+    const agentsUpdate = events.find((event) => event.type === "agents_update");
+
+    expect(decision).toEqual({ block: false });
+    expect(runtime?.current_tool).toBe("Bash");
+    expect(agentsUpdate).toEqual({
+      type: "agents_update",
+      agents: [expect.objectContaining({ session_id: "tool-session", current_tool: "Bash" })],
+    });
+  });
+
   test("blocks a killed agent before allowing another tool call", () => {
     const db = createTestDb();
     db.run(

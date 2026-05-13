@@ -7,6 +7,7 @@ import type {
   PreToolUseInput,
   DaemonDecision,
 } from "../../types.ts";
+import { getAgents, setCurrentTool } from "../db.ts";
 
 export function handlePreTool(
   input: PreToolUseInput,
@@ -67,6 +68,8 @@ export function handlePreTool(
      VALUES (?, ?, ?, ?)`,
     [session_id, tool_name, hashArgs(tool_input), Date.now()],
   );
+  setCurrentTool(db, session_id, tool_name);
+  broadcast?.({ type: "agents_update", agents: getAgents(db) });
 
   return { block: false };
 }

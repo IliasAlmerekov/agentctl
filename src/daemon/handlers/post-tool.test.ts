@@ -68,4 +68,44 @@ describe("handlePostTool", () => {
     expect(row?.status).toBe("budget_exceeded");
     expect(row?.ended_at).toBeNumber();
   });
+
+  test("clears the current tool after the tool call completes", () => {
+    const db = createTestDb();
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agent_runtime (
+        session_id TEXT PRIMARY KEY,
+        current_tool TEXT
+      );
+    `);
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["tool-session", Date.now()],
+    );
+    db.run(
+      `INSERT INTO agent_runtime (session_id, current_tool)
+       VALUES (?, ?)`,
+      ["tool-session", "Bash"],
+    );
+
+    const result = handlePostTool(
+      {
+        session_id: "tool-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+        tool_response: { ok: true },
+        tokens_used: 1,
+      },
+      db,
+      () => undefined,
+    );
+    const runtimeCount = db
+      .query<{ count: number }, string>(
+        "SELECT COUNT(*) as count FROM agent_runtime WHERE session_id = ?",
+      )
+      .get("tool-session");
+
+    expect(result).toEqual({ ok: true });
+    expect(runtimeCount?.count).toBe(0);
+  });
 });

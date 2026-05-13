@@ -607,7 +607,7 @@ export interface Agent {
   token_budget: number | null;
   started_at: number;
   ended_at: number | null;
-  current_tool: string | null; // populated from PostToolUse in daemon memory
+  current_tool: string | null; // populated from runtime state between PreToolUse and PostToolUse
 }
 
 export interface Injection {
