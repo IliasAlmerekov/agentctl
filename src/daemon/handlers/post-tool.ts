@@ -23,10 +23,13 @@ export function handlePostTool(
   addTokens(db, session_id, delta);
 
   const agent = getAgent(db, session_id);
-  if (
-    agent?.token_budget != null &&
-    agent.tokens_used >= agent.token_budget
-  ) {
+  const budgetReached =
+    agent?.token_budget != null && agent.tokens_used >= agent.token_budget;
+  if (budgetReached && agent?.status === "running") {
+    db.run(
+      "UPDATE agents SET status = 'budget_exceeded', ended_at = ? WHERE session_id = ?",
+      [Date.now(), session_id],
+    );
     broadcast({
       type: "budget_exceeded",
       session_id,
