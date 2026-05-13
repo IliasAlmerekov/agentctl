@@ -404,6 +404,13 @@ describe("daemon HTTP body limits and validation", () => {
     });
   }
 
+  function seedAgent(db: Database, sessionId: string): void {
+    db.run(
+      "INSERT INTO agents (session_id, status, started_at) VALUES (?, 'running', 0)",
+      [sessionId],
+    );
+  }
+
   test("returns 400 for malformed JSON on control endpoints", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
@@ -533,12 +540,159 @@ describe("daemon HTTP body limits and validation", () => {
     expect(res.status).toBe(200);
   });
 
+  test("rejects invalid inject payloads with 400 before not_found or DB writes", async () => {
+    const invalidCases = [
+      {
+        name: "missing session_id",
+        body: { message: "hello" },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id wrong type",
+        body: { session_id: 123, message: "hello" },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id whitespace-only",
+        body: { session_id: "   ", message: "hello" },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id has surrounding whitespace",
+        body: { session_id: " missing-agent ", message: "hello" },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "missing message",
+        body: { session_id: "missing-agent" },
+        error: "message must be a non-empty string",
+      },
+      {
+        name: "message wrong type",
+        body: { session_id: "missing-agent", message: null },
+        error: "message must be a non-empty string",
+      },
+      {
+        name: "message whitespace-only",
+        body: { session_id: "missing-agent", message: "   " },
+        error: "message must be a non-empty string",
+      },
+    ] as const;
+
+    for (const invalidCase of invalidCases) {
+      const db = createTestDb();
+      const fetchDaemon = createDaemonFetch(db, () => {}, {
+        authToken: TEST_TOKEN,
+      });
+
+      const res = expectResponse(
+        await fetchDaemon(jsonRequest("/inject", invalidCase.body, TEST_TOKEN)),
+      );
+      expect(res.status, invalidCase.name).toBe(400);
+      expect(await res.json()).toEqual({
+        ok: false,
+        error: invalidCase.error,
+      });
+
+      const injectionCount = db
+        .query<{ count: number }, []>("SELECT COUNT(*) as count FROM injections")
+        .get();
+      const missingAgent = db
+        .query<{ session_id: string }, string>(
+          "SELECT session_id FROM agents WHERE session_id = ?",
+        )
+        .get("missing-agent");
+
+      expect(injectionCount?.count, invalidCase.name).toBe(0);
+      expect(missingAgent, invalidCase.name).toBeNull();
+    }
+  });
+
+  test("rejects invalid cap payloads with 400 before not_found or DB writes", async () => {
+    const invalidCases = [
+      {
+        name: "missing session_id",
+        body: { tokens: 1 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id wrong type",
+        body: { session_id: false, tokens: 1 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id whitespace-only",
+        body: { session_id: "   ", tokens: 1 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id has surrounding whitespace",
+        body: { session_id: " agent-a ", tokens: 1 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "missing tokens",
+        body: { session_id: "agent-a" },
+        error: "tokens must be a positive integer",
+      },
+      {
+        name: "tokens wrong type",
+        body: { session_id: "agent-a", tokens: "10" },
+        error: "tokens must be a positive integer",
+      },
+      {
+        name: "tokens zero",
+        body: { session_id: "agent-a", tokens: 0 },
+        error: "tokens must be a positive integer",
+      },
+      {
+        name: "tokens negative",
+        body: { session_id: "agent-a", tokens: -1 },
+        error: "tokens must be a positive integer",
+      },
+      {
+        name: "tokens fractional",
+        body: { session_id: "agent-a", tokens: 1.5 },
+        error: "tokens must be a positive integer",
+      },
+    ] as const;
+
+    for (const invalidCase of invalidCases) {
+      const db = createTestDb();
+      seedAgent(db, "agent-a");
+      const fetchDaemon = createDaemonFetch(db, () => {}, {
+        authToken: TEST_TOKEN,
+      });
+
+      const tokenBudgetBefore = db
+        .query<{ token_budget: number | null }, string>(
+          "SELECT token_budget FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      const res = expectResponse(
+        await fetchDaemon(jsonRequest("/cap", invalidCase.body, TEST_TOKEN)),
+      );
+      expect(res.status, invalidCase.name).toBe(400);
+      expect(await res.json()).toEqual({
+        ok: false,
+        error: invalidCase.error,
+      });
+
+      const tokenBudgetAfter = db
+        .query<{ token_budget: number | null }, string>(
+          "SELECT token_budget FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      expect(tokenBudgetBefore?.token_budget, invalidCase.name).toBeNull();
+      expect(tokenBudgetAfter?.token_budget, invalidCase.name).toBeNull();
+    }
+  });
+
   test("rejects injection messages larger than 64 KB UTF-8 bytes with 400", async () => {
     const db = createTestDb();
-    initSchema(db);
-    db.run(
-      "INSERT INTO agents (session_id, status, started_at) VALUES ('big', 'running', 0)",
-    );
+    seedAgent(db, "big");
     const fetchDaemon = createDaemonFetch(db, () => {}, {
       authToken: TEST_TOKEN,
     });
@@ -558,10 +712,7 @@ describe("daemon HTTP body limits and validation", () => {
 
   test("accepts injection message up to 64 KB", async () => {
     const db = createTestDb();
-    initSchema(db);
-    db.run(
-      "INSERT INTO agents (session_id, status, started_at) VALUES ('ok', 'running', 0)",
-    );
+    seedAgent(db, "ok");
     const fetchDaemon = createDaemonFetch(db, () => {}, {
       authToken: TEST_TOKEN,
     });
