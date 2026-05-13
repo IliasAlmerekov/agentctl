@@ -7,6 +7,19 @@ export function getAgent(db: Database, sessionId: string): Agent | null {
     .get(sessionId);
 }
 
+export function ensureAgent(
+  db: Database,
+  sessionId: string,
+  now: number = Date.now(),
+): void {
+  db.run(
+    `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
+     VALUES (?, 'running', 0, 0, ?)
+     ON CONFLICT(session_id) DO NOTHING`,
+    [sessionId, now],
+  );
+}
+
 export function setBudget(
   db: Database,
   sessionId: string,

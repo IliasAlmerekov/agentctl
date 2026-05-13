@@ -11,6 +11,42 @@ function createTestDb(): Database {
 }
 
 describe("handlePreTool", () => {
+  test("creates an agent record for unknown sessions", () => {
+    const db = createTestDb();
+
+    const decision = handlePreTool(
+      {
+        session_id: "new-session",
+        tool_name: "Bash",
+        tool_input: { command: "rtk ls" },
+      },
+      db,
+    );
+    const row = db
+      .query<
+        {
+          session_id: string;
+          status: string;
+          depth: number;
+          tokens_used: number;
+          parent_id: string | null;
+          started_at: number | null;
+        },
+        string
+      >(
+        "SELECT session_id, status, depth, tokens_used, parent_id, started_at FROM agents WHERE session_id = ?",
+      )
+      .get("new-session");
+
+    expect(decision).toEqual({ block: false });
+    expect(row?.session_id).toBe("new-session");
+    expect(row?.status).toBe("running");
+    expect(row?.depth).toBe(0);
+    expect(row?.tokens_used).toBe(0);
+    expect(row?.parent_id).toBeNull();
+    expect(row?.started_at).toBeNumber();
+  });
+
   test("blocks a killed agent before allowing another tool call", () => {
     const db = createTestDb();
     db.run(
