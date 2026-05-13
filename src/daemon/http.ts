@@ -61,6 +61,10 @@ type ParsedBody<T> =
   | { ok: true; body: T }
   | { ok: false; response: Response };
 
+type ValidationResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string };
+
 async function readBoundedJson<T>(
   req: Request,
   maxBytes: number,
@@ -91,6 +95,90 @@ async function readBoundedJson<T>(
 
 function utf8ByteLength(s: string): number {
   return new TextEncoder().encode(s).byteLength;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validateSessionId(body: unknown): ValidationResult<string> {
+  if (!isRecord(body) || !("session_id" in body)) {
+    return { ok: false, error: "session_id must be a non-empty string" };
+  }
+
+  const { session_id } = body;
+  if (typeof session_id !== "string") {
+    return { ok: false, error: "session_id must be a non-empty string" };
+  }
+  if (session_id.trim().length === 0) {
+    return { ok: false, error: "session_id must be a non-empty string" };
+  }
+  if (session_id !== session_id.trim()) {
+    return { ok: false, error: "session_id must be a non-empty string" };
+  }
+
+  return { ok: true, value: session_id };
+}
+
+function validateInjectRequest(body: unknown): ValidationResult<InjectRequest> {
+  const sessionId = validateSessionId(body);
+  if (!sessionId.ok) {
+    return sessionId;
+  }
+
+  if (!isRecord(body) || !("message" in body)) {
+    return { ok: false, error: "message must be a non-empty string" };
+  }
+
+  const { message } = body;
+  if (typeof message !== "string") {
+    return { ok: false, error: "message must be a non-empty string" };
+  }
+  if (message.trim().length === 0) {
+    return { ok: false, error: "message must be a non-empty string" };
+  }
+  if (utf8ByteLength(message) > INJECTION_MESSAGE_LIMIT_BYTES) {
+    return {
+      ok: false,
+      error: `injection message exceeds ${INJECTION_MESSAGE_LIMIT_BYTES} bytes (64 KB UTF-8)`,
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      session_id: sessionId.value,
+      message,
+    },
+  };
+}
+
+function validateCapRequest(body: unknown): ValidationResult<CapRequest> {
+  const sessionId = validateSessionId(body);
+  if (!sessionId.ok) {
+    return sessionId;
+  }
+
+  if (!isRecord(body) || !("tokens" in body)) {
+    return { ok: false, error: "tokens must be a positive integer" };
+  }
+
+  const { tokens } = body;
+  if (
+    typeof tokens !== "number" ||
+    !Number.isSafeInteger(tokens) ||
+    tokens < 1
+  ) {
+    return { ok: false, error: "tokens must be a positive integer" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      session_id: sessionId.value,
+      tokens,
+    },
+  };
 }
 
 function isCliEndpoint(pathname: string): boolean {
@@ -159,17 +247,10 @@ export function createDaemonFetch(
         CONTROL_BODY_LIMIT_BYTES,
       );
       if (!parsed.ok) return parsed.response;
+      const validated = validateInjectRequest(parsed.body);
+      if (!validated.ok) return badRequest(validated.error);
 
-      const { session_id, message } = parsed.body;
-
-      if (
-        typeof message === "string" &&
-        utf8ByteLength(message) > INJECTION_MESSAGE_LIMIT_BYTES
-      ) {
-        return badRequest(
-          `injection message exceeds ${INJECTION_MESSAGE_LIMIT_BYTES} bytes (64 KB UTF-8)`,
-        );
-      }
+      const { session_id, message } = validated.value;
 
       if (!getAgent(db, session_id)) {
         return Response.json({ ok: true, session_id, status: "not_found" });
@@ -190,8 +271,10 @@ export function createDaemonFetch(
         CONTROL_BODY_LIMIT_BYTES,
       );
       if (!parsed.ok) return parsed.response;
+      const validated = validateCapRequest(parsed.body);
+      if (!validated.ok) return badRequest(validated.error);
 
-      const { session_id, tokens } = parsed.body;
+      const { session_id, tokens } = validated.value;
       if (!getAgent(db, session_id)) {
         return Response.json({ ok: true, session_id, status: "not_found" });
       }
