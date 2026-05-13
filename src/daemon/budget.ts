@@ -43,7 +43,5 @@ export function addTokens(
 }
 
 export function isBudgetExceeded(agent: Agent): boolean {
-  return (
-    agent.token_budget != null && agent.tokens_used >= agent.token_budget
-  );
+  return agent.token_budget != null && agent.tokens_used >= agent.token_budget;
 }
