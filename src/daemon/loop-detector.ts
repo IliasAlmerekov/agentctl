@@ -22,8 +22,11 @@ export function detectLoop(
     )
     .get(sessionId, toolName, hash, Date.now() - WINDOW_MS);
 
-  const count = row?.count ?? 0;
-  return count >= THRESHOLD ? { detected: true, count } : { detected: false };
+  const priorCount = row?.count ?? 0;
+  const countIncludingCurrent = priorCount + 1;
+  return countIncludingCurrent >= THRESHOLD
+    ? { detected: true, count: countIncludingCurrent }
+    : { detected: false };
 }
 
 function normalise(input: unknown): unknown {

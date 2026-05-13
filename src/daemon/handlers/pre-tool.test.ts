@@ -202,9 +202,10 @@ describe("handlePreTool", () => {
       db,
     );
     const injection = db
-      .query<{ status: string; delivered_at: number | null }, []>(
-        "SELECT status, delivered_at FROM injections LIMIT 1",
-      )
+      .query<
+        { status: string; delivered_at: number | null },
+        []
+      >("SELECT status, delivered_at FROM injections LIMIT 1")
       .get();
 
     expect(decision.block).toBe(true);
@@ -235,9 +236,10 @@ describe("handlePreTool", () => {
     const firstDecision = handlePreTool(input, db);
     const secondDecision = handlePreTool(input, db);
     const delivered = db
-      .query<{ count: number }, []>(
-        "SELECT COUNT(*) as count FROM injections WHERE status = 'delivered'",
-      )
+      .query<
+        { count: number },
+        []
+      >("SELECT COUNT(*) as count FROM injections WHERE status = 'delivered'")
       .get();
 
     expect(firstDecision.block).toBe(true);
@@ -258,18 +260,22 @@ describe("handlePreTool", () => {
     };
     const events: AgentEvent[] = [];
 
-    for (let i = 0; i < 5; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       expect(handlePreTool(input, db, (event) => events.push(event))).toEqual({
         block: false,
       });
     }
 
     const decision = handlePreTool(input, db, (event) => events.push(event));
+    const calls = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
 
     expect(decision.block).toBe(true);
     const event = events.find((item) => item.type === "loop_detected");
     expect(event?.session_id).toBe("loop-session");
     expect(event?.message).toContain("Bash");
     expect(event?.message).toContain("5");
+    expect(calls?.count).toBe(4);
   });
 });
