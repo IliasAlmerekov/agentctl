@@ -53,13 +53,14 @@ agentctl cap <agent-id> --tokens 50000
 
 Once the agent hits the cap, it receives a blocking message: _"Budget exceeded. Summarise your work and stop."_ Prevents a runaway sub-agent from burning $40 on node_modules traversal.
 
-### 3. Kill one agent, not all of them
+### 3. Stop one agent at its next tool call boundary
 
 ```bash
-agentctl kill <agent-id>
+agentctl stop-next-tool-call <agent-id>
 ```
 
-Terminates a specific agent. The orchestrator and remaining agents continue.
+Marks a specific agent so its next tool call is blocked. This does not interrupt a tool that is already running; the orchestrator and remaining agents continue.
+`agentctl kill <agent-id>` remains as a legacy alias for this hook-boundary stop.
 
 ---
 
@@ -759,7 +760,10 @@ agentctl inject <session-id> "The API endpoint changed to /v2/users"
 # Cap token budget for an agent
 agentctl cap <session-id> --tokens 50000
 
-# Kill one specific agent
+# Stop one specific agent at its next tool call boundary
+agentctl stop-next-tool-call <session-id>
+
+# Legacy alias for stop-next-tool-call
 agentctl kill <session-id>
 
 # Show daemon status

@@ -39,4 +39,8 @@ describe("documented CLI commands", () => {
     expect(readFileSync("README.md", "utf8")).toContain("Implemented commands");
     expect(readFileSync("AGENTCTL.md", "utf8")).toContain("Implemented commands");
   });
+
+  test("CLI exposes the honest next-tool-call stop command", () => {
+    expect(implementedCommands()).toContain("stop-next-tool-call");
+  });
 });

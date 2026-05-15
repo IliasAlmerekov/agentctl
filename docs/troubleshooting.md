@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This page covers the beta recovery paths for the local install. agentctl is intentionally local and fail-open: if the daemon or hook path is broken, Claude Code should keep running, but `inject`, `cap`, `kill`, `agents`, `watch`, and `status` will not be reliable until the local install is fixed.
+This page covers the beta recovery paths for the local install. agentctl is intentionally local and fail-open: if the daemon or hook path is broken, Claude Code should keep running, but `inject`, `cap`, `stop-next-tool-call`, `kill`, `agents`, `watch`, and `status` will not be reliable until the local install is fixed.
 
 ## `daemon: not running`
 
@@ -83,7 +83,7 @@ For full recovery instructions covering `agents.db-wal`, `agents.db-shm`, schema
 
 ## Control command says `not found`
 
-If `inject`, `cap`, or `kill` prints `not found`, the daemon has no live or historical record for that session ID. Re-run `agentctl agents` and copy the session ID from the current list. For stale sessions, start a fresh Claude Code run; agentctl does not queue future injections for unknown IDs.
+If `inject`, `cap`, `stop-next-tool-call`, or `kill` prints `not found`, the daemon has no live or historical record for that session ID. Re-run `agentctl agents` and copy the session ID from the current list. For stale sessions, start a fresh Claude Code run; agentctl does not queue future injections for unknown IDs.
 
 ## hook config conflicts
 

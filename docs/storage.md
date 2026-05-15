@@ -79,4 +79,4 @@ This discards agent history, pending injections, and token counters. The auth to
 ## Failure model
 
 - **Hooks (pre/post tool, subagent start/stop):** fail-open. If the daemon is unreachable or returns an error, hooks exit `0` and Claude Code is never blocked by agentctl being down.
-- **CLI commands (`inject`, `cap`, `kill`, `agents`, `status`, `watch`):** fail-closed. If the daemon returns an error or is unreachable, the CLI prints the error to stderr and exits non-zero. Run `agentctl status` first to verify the daemon is reachable.
+- **CLI commands (`inject`, `cap`, `stop-next-tool-call`, `kill`, `agents`, `status`, `watch`):** fail-closed. If the daemon returns an error or is unreachable, the CLI prints the error to stderr and exits non-zero. Run `agentctl status` first to verify the daemon is reachable.

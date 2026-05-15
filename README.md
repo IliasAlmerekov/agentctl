@@ -25,8 +25,8 @@ agentctl inject <agent-id> "Stop building auth. Use Supabase Auth instead."
 # Cap an agent's approximate token budget
 agentctl cap <agent-id> --tokens 50000
 
-# Kill one agent, not all of them
-agentctl kill <agent-id>
+# Stop one agent at its next tool call boundary
+agentctl stop-next-tool-call <agent-id>
 ```
 
 ## Demo
@@ -75,15 +75,20 @@ agentctl watch           # Live TUI — agent tree, token bars, loop alerts
 agentctl status          # Show daemon status
 agentctl inject <id> "message"
 agentctl cap <id> --tokens 50000
-agentctl kill <id>
+agentctl stop-next-tool-call <id>
+agentctl kill <id>      # Legacy alias for stop-next-tool-call
 agentctl uninstall       # Remove hooks, daemon registration, and local files
 ```
 
-Unknown session IDs are reported as `not_found`: `inject`, `cap`, and `kill`
-print an error and exit non-zero instead of pretending that a mistyped agent ID
-was controlled.
+Unknown session IDs are reported as `not_found`: `inject`, `cap`,
+`stop-next-tool-call`, and `kill` print an error and exit non-zero instead of
+pretending that a mistyped agent ID was controlled.
 
 `cap` enforces an approximate token budget. agentctl uses hook-reported `tokens_used` when Claude Code provides it; when that field is unavailable, it falls back to a rough JSON-size estimate for tool input and response payloads.
+
+`stop-next-tool-call` does not interrupt a tool that is already running. It marks
+the agent so its next tool call is blocked by `PreToolUse`; the legacy `kill`
+command is kept as an alias for the same hook-boundary behavior.
 
 ## How it works
 

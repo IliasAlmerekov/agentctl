@@ -9,10 +9,12 @@ These notes describe the `v0.2.0` public beta shape for agentctl.
 - `agentctl status`: show whether the local daemon is reachable.
 - `agentctl inject`: send a steering message to a known running agent.
 - `agentctl cap`: set a total token cap for a known running agent.
-- `agentctl kill`: mark one known running agent as killed so the next tool call is blocked.
+- `agentctl stop-next-tool-call`: mark one known running agent so the next tool call is blocked.
+- `agentctl kill`: legacy alias for `stop-next-tool-call`.
 - `agentctl uninstall`: remove agentctl-managed hooks, daemon registration, and local files.
 
-Unknown session IDs return `not_found` for `inject`, `cap`, and `kill`.
+Unknown session IDs return `not_found` for `inject`, `cap`,
+`stop-next-tool-call`, and `kill`.
 
 ## Supported Platforms
 

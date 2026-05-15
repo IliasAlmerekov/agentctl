@@ -46,8 +46,13 @@ program
   .action((sessionId, opts) => cmdCap(sessionId, opts.tokens));
 
 program
+  .command("stop-next-tool-call <session-id>")
+  .description("Schedule one specific agent to stop at its next tool call")
+  .action((sessionId) => cmdKill(sessionId));
+
+program
   .command("kill <session-id>")
-  .description("Kill one specific agent without stopping others")
+  .description("Compatibility alias for stop-next-tool-call")
   .action((sessionId) => cmdKill(sessionId));
 
 program

@@ -14,6 +14,7 @@ describe("public launch release notes", () => {
       "`agentctl status`",
       "`agentctl inject`",
       "`agentctl cap`",
+      "`agentctl stop-next-tool-call`",
       "`agentctl kill`",
       "`agentctl uninstall`",
       "macOS Apple Silicon",
