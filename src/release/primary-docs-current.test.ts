@@ -58,6 +58,14 @@ describe("primary docs current behavior", () => {
     );
   });
 
+  test("primary docs describe token caps as approximate when hook token usage is unavailable", () => {
+    const readme = read("README.md");
+
+    expect(readme).toContain("approximate token budget");
+    expect(readme).toContain("uses hook-reported `tokens_used` when Claude Code provides it");
+    expect(readme).toContain("falls back to a rough JSON-size estimate");
+  });
+
   test("primary docs describe the measured hook latency contract", () => {
     const readme = read("README.md");
     const agentctl = read("AGENTCTL.md");

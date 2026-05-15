@@ -22,7 +22,7 @@ CONTROL     →  ❌ Unsolved — agentctl lives here
 # Inject a steering signal into a running agent
 agentctl inject <agent-id> "Stop building auth. Use Supabase Auth instead."
 
-# Cap an agent's token budget
+# Cap an agent's approximate token budget
 agentctl cap <agent-id> --tokens 50000
 
 # Kill one agent, not all of them
@@ -83,12 +83,14 @@ Unknown session IDs are reported as `not_found`: `inject`, `cap`, and `kill`
 print an error and exit non-zero instead of pretending that a mistyped agent ID
 was controlled.
 
+`cap` enforces an approximate token budget. agentctl uses hook-reported `tokens_used` when Claude Code provides it; when that field is unavailable, it falls back to a rough JSON-size estimate for tool input and response payloads.
+
 ## How it works
 
 Claude Code runs a hook script on every tool call. The hook calls the local daemon (`127.0.0.1:47823`) which decides whether to block, inject a message, or allow. The daemon tracks:
 
 - **Loop detection** — same tool + same args called 5× in 2 minutes → blocked
-- **Budget enforcement** — tokens_used ≥ token_budget → blocked with summary request
+- **Budget enforcement** — approximate tokens_used ≥ token_budget → blocked with summary request
 - **Injection queue** — pending steering signals delivered at the next tool call boundary
 
 If the daemon is unreachable, hooks exit `0` — Claude is never blocked by agentctl being down.
