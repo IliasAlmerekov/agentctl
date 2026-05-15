@@ -12,9 +12,9 @@ export function formatKillResult(sessionId: string, result: KillResult): string 
 
   switch (result.status) {
     case "killed":
-      return `✓ Agent ${label} killed`;
+      return `✓ Agent ${label} will stop at next tool call`;
     case "already_killed":
-      return `✓ Agent ${label} already killed`;
+      return `✓ Agent ${label} already scheduled to stop`;
     case "not_found":
       return `✗ Agent ${label} not found`;
   }

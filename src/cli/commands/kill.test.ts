@@ -9,7 +9,7 @@ describe("formatKillResult", () => {
         session_id: "running-session",
         status: "killed",
       }),
-    ).toBe("✓ Agent running- killed");
+    ).toBe("✓ Agent running- will stop at next tool call");
   });
 
   test("formats repeated kill idempotently", () => {
@@ -19,7 +19,7 @@ describe("formatKillResult", () => {
         session_id: "killed-session",
         status: "already_killed",
       }),
-    ).toBe("✓ Agent killed-s already killed");
+    ).toBe("✓ Agent killed-s already scheduled to stop");
   });
 
   test("formats a missing session explicitly", () => {
@@ -42,7 +42,7 @@ describe("renderKillResult", () => {
         status: "killed",
       }),
     ).toEqual({
-      message: "✓ Agent running- killed",
+      message: "✓ Agent running- will stop at next tool call",
       stream: "stdout",
       exitCode: 0,
     });
@@ -56,7 +56,7 @@ describe("renderKillResult", () => {
         status: "already_killed",
       }),
     ).toEqual({
-      message: "✓ Agent killed-s already killed",
+      message: "✓ Agent killed-s already scheduled to stop",
       stream: "stdout",
       exitCode: 0,
     });

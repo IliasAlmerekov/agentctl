@@ -52,10 +52,11 @@ describe("primary docs current behavior", () => {
     const readme = read("README.md");
 
     expect(readme).toContain("Unknown session IDs are reported as `not_found`");
-    expect(readme).toContain("`inject`, `cap`, and `kill`");
-    expect(read("docs/troubleshooting.md")).toContain(
-      "`inject`, `cap`, or `kill` prints `not found`",
-    );
+    expect(readme).toContain("`inject`, `cap`,");
+    expect(readme).toContain("`stop-next-tool-call`, and `kill`");
+    const troubleshooting = read("docs/troubleshooting.md");
+    expect(troubleshooting).toContain("`inject`, `cap`, `stop-next-tool-call`");
+    expect(troubleshooting).toContain("or `kill` prints `not found`");
   });
 
   test("primary docs describe token caps as approximate when hook token usage is unavailable", () => {
@@ -64,6 +65,28 @@ describe("primary docs current behavior", () => {
     expect(readme).toContain("approximate token budget");
     expect(readme).toContain("uses hook-reported `tokens_used` when Claude Code provides it");
     expect(readme).toContain("falls back to a rough JSON-size estimate");
+  });
+
+  test("primary docs describe stop as a next-tool-call boundary, not a process kill", () => {
+    for (const path of PRIMARY_DOCS) {
+      const doc = read(path);
+
+      expect(doc, `${path} should document the honest command`).toContain(
+        "agentctl stop-next-tool-call <",
+      );
+      expect(doc, `${path} should document boundary semantics`).toContain(
+        "next tool call",
+      );
+      expect(doc, `${path} should document running tool limitation`).toContain(
+        "does not interrupt a tool that is already running",
+      );
+      expect(doc, `${path} should avoid immediate-kill wording`).not.toContain(
+        "Kill one agent, not all of them",
+      );
+      expect(doc, `${path} should avoid process-termination wording`).not.toContain(
+        "Terminates a specific agent",
+      );
+    }
   });
 
   test("primary docs describe the measured hook latency contract", () => {

@@ -17,7 +17,7 @@ describe("external onboarding documentation", () => {
       "agentctl watch",
       "agentctl inject",
       "agentctl cap",
-      "agentctl kill",
+      "agentctl stop-next-tool-call",
       "agentctl uninstall",
     ]) {
       expect(doc).toContain(requiredText);

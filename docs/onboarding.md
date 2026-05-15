@@ -47,13 +47,15 @@ agentctl agents
 agentctl watch
 agentctl inject <session-id> "Use the simpler implementation path."
 agentctl cap <session-id> --tokens 50000
-agentctl kill <session-id>
+agentctl stop-next-tool-call <session-id>
 agentctl uninstall
 ```
 
 `agentctl agents` shows known sessions and token usage. `agentctl watch` opens
-the live TUI. `inject`, `cap`, and `kill` require a session id from
-`agentctl agents`; unknown ids return `not_found`.
+the live TUI. `inject`, `cap`, `stop-next-tool-call`, and the legacy `kill`
+alias require a session id from `agentctl agents`; unknown ids return
+`not_found`. `stop-next-tool-call` does not interrupt a tool that is already
+running; it blocks the agent at the next tool call boundary.
 
 ## Managed hook setup
 
