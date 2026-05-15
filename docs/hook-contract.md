@@ -16,6 +16,22 @@ agentctl uses Claude Code command hooks. A hook receives JSON on stdin, talks to
 
 The public launch contract is `<250ms` p95 for normal compiled hook calls that reach the local daemon. The daemon-unavailable path must stay fail-open and `<75ms` p95, so agentctl being down does not stall Claude Code.
 
+Slow daemon responses are measured separately. A delayed daemon response can come
+from bugs, CPU pressure, or SQLite contention; WAL reduces reader/writer
+blocking but does not make synchronous daemon work free. Hooks therefore use a
+short fail-open timeout and the `slow-daemon` latency scenario must stay below
+`<150ms` p95.
+
+The p95 number is per hook invocation, not per user task. For parallel
+sub-agents with many tool calls, cumulative overhead is roughly:
+
+```text
+worst_hook_p95_ms * number_of_hook_invocations
+```
+
+The latency script prints a `cumulative_p95_estimate` row so this overhead is
+visible instead of hidden behind a single-call p95.
+
 Fresh local Linux evidence from 2026-05-07:
 
 ```bash
@@ -24,6 +40,9 @@ rtk env PATH="$HOME/.bun/bin:$PATH" AGENTCTL_HOOK_LATENCY_RUNS=10 bun run measur
 
 - normal p95: 188.32-197.27ms across pre/post/subagent hooks.
 - daemon-unavailable p95: 39.31-52.04ms across pre/post/subagent hooks.
+
+Slow daemon and cumulative overhead measurements were added after this evidence
+snapshot; rerun `measure:hooks` before using the numbers for release decisions.
 
 ## Non-blocking hooks
 

@@ -16,6 +16,9 @@ describe("hook blocking contract documentation", () => {
       "`SubagentStop`",
       "fail open",
       "does not undo",
+      "Slow daemon",
+      "cumulative overhead",
+      "SQLite contention",
       "does not replace Claude Code permissions",
       "https://code.claude.com/docs/en/hooks",
     ]) {

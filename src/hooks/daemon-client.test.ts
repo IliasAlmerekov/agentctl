@@ -34,6 +34,34 @@ describe("sendHookRequest", () => {
     expect(observed.body).toEqual({ session_id: "agent-a" });
   });
 
+  test("uses AGENTCTL_DAEMON_HTTP_ORIGIN when no explicit origin is passed", async () => {
+    const previousOrigin = process.env.AGENTCTL_DAEMON_HTTP_ORIGIN;
+    process.env.AGENTCTL_DAEMON_HTTP_ORIGIN = "http://agentctl-env.test";
+    let observedUrl = "";
+
+    try {
+      await sendHookRequest(
+        "/hook/pre",
+        { session_id: "agent-a" },
+        {
+          readToken: () => "test-token",
+          fetchImpl: async (url) => {
+            observedUrl = String(url);
+            return Response.json({ block: false });
+          },
+        },
+      );
+    } finally {
+      if (previousOrigin === undefined) {
+        delete process.env.AGENTCTL_DAEMON_HTTP_ORIGIN;
+      } else {
+        process.env.AGENTCTL_DAEMON_HTTP_ORIGIN = previousOrigin;
+      }
+    }
+
+    expect(observedUrl).toBe("http://agentctl-env.test/hook/pre");
+  });
+
   test("fails open without calling the daemon when the auth token is unavailable", async () => {
     let fetchCalled = false;
 
@@ -98,6 +126,30 @@ describe("sendHookRequest", () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  test("fails open before a slow daemon response can add visible hook overhead", async () => {
+    const started = performance.now();
+    const result = await sendHookRequest<{ block: boolean }>(
+      "/hook/pre",
+      { session_id: "agent-a" },
+      {
+        readToken: () => "test-token",
+        fetchImpl: async (_url, init) => {
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(resolve, 100);
+            init?.signal?.addEventListener("abort", () => {
+              clearTimeout(timeout);
+              reject(new Error("aborted"));
+            });
+          });
+          return Response.json({ block: false });
+        },
+      },
+    );
+
+    expect(result).toBeNull();
+    expect(performance.now() - started).toBeLessThan(100);
   });
 
   test("fails open when the daemon returns an unreadable response body", async () => {

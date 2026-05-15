@@ -1,7 +1,7 @@
 import { authHeaders, readAuthToken } from "../auth.ts";
 import { DAEMON_HTTP_ORIGIN } from "../config.ts";
 
-const HOOK_TIMEOUT_MS = 130;
+const HOOK_TIMEOUT_MS = 75;
 
 type HookFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -18,8 +18,12 @@ export async function sendHookRequest<T>(
 ): Promise<T | null> {
   try {
     const token = (options.readToken ?? readAuthToken)();
+    const origin =
+      options.origin ??
+      process.env.AGENTCTL_DAEMON_HTTP_ORIGIN ??
+      DAEMON_HTTP_ORIGIN;
     const res = await (options.fetchImpl ?? fetch)(
-      `${options.origin ?? DAEMON_HTTP_ORIGIN}${path}`,
+      `${origin}${path}`,
       {
         method: "POST",
         headers: {

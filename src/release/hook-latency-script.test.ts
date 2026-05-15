@@ -5,6 +5,7 @@ import {
   HOOK_LATENCY_SCENARIOS,
   HOOK_LATENCY_SPECS,
   assertLatencyBudgets,
+  estimateCumulativeOverhead,
   percentile,
 } from "../../scripts/measure-hook-latency.ts";
 
@@ -22,10 +23,12 @@ describe("compiled hook latency measurement script", () => {
   test("covers every compiled hook and required latency scenario", () => {
     expect(HOOK_LATENCY_SCENARIOS).toEqual([
       "normal",
+      "slow-daemon",
       "daemon-unavailable",
     ]);
     expect(HOOK_LATENCY_BUDGETS_MS).toEqual({
       normal: 250,
+      "slow-daemon": 150,
       "daemon-unavailable": 75,
     });
     expect(HOOK_LATENCY_SPECS.map((hook) => hook.name)).toEqual([
@@ -52,10 +55,35 @@ describe("compiled hook latency measurement script", () => {
       assertLatencyBudgets([
         {
           hook: "pre-tool-use",
-          scenario: "normal",
-          summary: { min_ms: 1, avg_ms: 2, p95_ms: 251, max_ms: 251 },
+          scenario: "slow-daemon",
+          summary: { min_ms: 1, avg_ms: 2, p95_ms: 151, max_ms: 151 },
         },
       ]),
-    ).toThrow("pre-tool-use normal p95 251ms exceeds budget 250ms");
+    ).toThrow("pre-tool-use slow-daemon p95 151ms exceeds budget 150ms");
+  });
+
+  test("estimates cumulative p95 overhead for multi-agent tool bursts", () => {
+    expect(
+      estimateCumulativeOverhead(
+        [
+          {
+            hook: "pre-tool-use",
+            scenario: "normal",
+            summary: { min_ms: 1, avg_ms: 2, p95_ms: 200, max_ms: 210 },
+          },
+          {
+            hook: "post-tool-use",
+            scenario: "normal",
+            summary: { min_ms: 1, avg_ms: 2, p95_ms: 180, max_ms: 190 },
+          },
+        ],
+        50,
+      ),
+    ).toEqual({
+      calls: 50,
+      scenario: "normal",
+      worst_hook_p95_ms: 200,
+      estimated_total_p95_ms: 10_000,
+    });
   });
 });
