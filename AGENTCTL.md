@@ -86,7 +86,7 @@ The exact `exit(2)` blocking contract and limitations are documented in `docs/ho
 
 ### Loop detection
 
-The daemon tracks every tool call: session ID, tool name, argument hash, timestamp. On each PreToolUse, it checks: has this session called this tool with these arguments 5+ times in the last 2 minutes? If yes — block with a human-readable explanation.
+The daemon tracks every tool call: session ID, tool name, argument hash, timestamp. On each PreToolUse, it checks: has this session called this tool with normalised equivalent arguments 5+ times in the default 2 minute window? If yes — block with a human-readable explanation.
 
 ```
 ⚠️ Loop detected: Bash("grep -r FIXME . --include=*.ts")
@@ -423,15 +423,25 @@ export async function handlePreTool(
 import { createHash } from "crypto";
 import type { Database } from "bun:sqlite";
 
-const WINDOW_MS = 120_000; // 2 minutes
-const THRESHOLD = 5; // same call N times = loop
+export const DEFAULT_LOOP_WINDOW_MS = 120_000;
+export const DEFAULT_LOOP_THRESHOLD = 5;
+
+type LoopDetectorOptions = {
+  windowMs?: number;
+  threshold?: number;
+  now?: number;
+};
 
 export function detectLoop(
   sessionId: string,
   toolName: string,
   toolInput: unknown,
   db: Database,
+  options: LoopDetectorOptions = {},
 ): { detected: boolean; count?: number } {
+  const windowMs = options.windowMs ?? DEFAULT_LOOP_WINDOW_MS;
+  const threshold = options.threshold ?? DEFAULT_LOOP_THRESHOLD;
+  const now = options.now ?? Date.now();
   const hash = createHash("sha1")
     .update(JSON.stringify(normalise(toolInput)))
     .digest("hex")
@@ -442,19 +452,29 @@ export function detectLoop(
       `SELECT COUNT(*) as count FROM tool_calls
        WHERE session_id = ? AND tool_name = ? AND arg_hash = ? AND called_at > ?`,
     )
-    .get(sessionId, toolName, hash, Date.now() - WINDOW_MS)!;
+    .get(sessionId, toolName, hash, now - windowMs)!;
 
-  return count >= THRESHOLD ? { detected: true, count } : { detected: false };
+  return count + 1 >= threshold ? { detected: true, count: count + 1 } : { detected: false };
 }
 
-// Strip non-deterministic fields before hashing
+// Strip non-deterministic fields and volatile string values before hashing.
 function normalise(input: unknown): unknown {
+  if (typeof input === "string") return normaliseString(input);
+  if (Array.isArray(input)) return input.map((item) => normalise(item));
   if (typeof input !== "object" || input === null) return input;
   return Object.fromEntries(
     Object.entries(input as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
       .filter(([k]) => !["timestamp", "request_id", "nonce"].includes(k))
       .map(([k, v]) => [k, normalise(v)]),
   );
+}
+
+function normaliseString(value: string): string {
+  return value
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "<uuid>")
+    .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, "<timestamp>")
+    .replace(/\b\d{13}\b/g, "<timestamp>");
 }
 ```
 
@@ -815,7 +835,7 @@ The beta out-of-scope list is kept in `docs/out-of-scope.md`.
 | Anthropic changes hook protocol        | Low                        | Hooks are a stable, documented feature. Changes would be breaking for the whole ecosystem.                        |
 | Hook timing causes Claude to fail-open | Mitigated by design        | Daemon unavailable → `exit(0)` always. agentctl never blocks Claude if it's down.                                 |
 | Agent ignores injected message         | Possible                   | Message is prepended with `⚡ STEERING SIGNAL from operator:` — Claude treats operator messages with high weight. |
-| Loop detector produces false positives | Possible in caches/retries | Normalise args before hashing (strip `request_id`, `timestamp`). Threshold is 5 calls, not 2.                     |
+| Loop detector produces false positives | Possible in caches/retries | Normalise args before hashing, including volatile UUID/timestamp values inside strings. The default threshold is 5 calls, not 2, and the detector accepts explicit threshold/window options. |
 | Anthropic builds this natively         | Likely in 6-12 months      | GitHub Issues #30492 and #25408 are open but not planned. Window exists.                                          |
 
 ---
