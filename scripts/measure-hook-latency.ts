@@ -2,10 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { AUTH_HEADER } from "../src/auth.ts";
-import { DAEMON_HOST, DAEMON_PORT } from "../src/config.ts";
+import { DAEMON_HOST } from "../src/config.ts";
 
 export const HOOK_LATENCY_SCENARIOS = [
   "normal",
+  "slow-daemon",
   "daemon-unavailable",
 ] as const;
 
@@ -37,11 +38,20 @@ export type HookLatencyRow = {
   summary: HookLatencySummary;
 };
 
+export type CumulativeOverheadEstimate = {
+  calls: number;
+  scenario: HookLatencyScenario;
+  worst_hook_p95_ms: number;
+  estimated_total_p95_ms: number;
+};
+
 const TOKEN = "agentctl-hook-latency-token";
 const DEFAULT_RUNS = 10;
+const DEFAULT_CUMULATIVE_CALLS = 50;
 
 export const HOOK_LATENCY_BUDGETS_MS = {
   normal: 250,
+  "slow-daemon": 150,
   "daemon-unavailable": 75,
 } as const satisfies Record<HookLatencyScenario, number>;
 
@@ -132,35 +142,67 @@ function createTempHome(): string {
   return home;
 }
 
-function startStubDaemon(): { stop: () => void } {
-  const server = Bun.serve({
-    hostname: DAEMON_HOST,
-    port: DAEMON_PORT,
-    fetch(req) {
-      if (req.headers.get(AUTH_HEADER) !== TOKEN) {
-        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-      }
-
-      const { pathname } = new URL(req.url);
-      if (pathname === "/hook/pre") {
-        return Response.json({ block: false });
-      }
-
-      return Response.json({ ok: true });
-    },
-  });
-
-  return {
-    stop: () => server.stop(true),
-  };
+function randomLatencyPort(): number {
+  return 20_000 + Math.floor(Math.random() * 30_000);
 }
 
-function runHook(spec: HookLatencySpec, home: string): HookLatencySample {
+function startStubDaemon(
+  options: { responseDelayMs?: number } = {},
+): { origin: string; stop: () => void } {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const port = randomLatencyPort();
+    try {
+      const server = Bun.serve({
+        hostname: DAEMON_HOST,
+        port,
+        async fetch(req) {
+          if (req.headers.get(AUTH_HEADER) !== TOKEN) {
+            return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+          }
+
+          if (options.responseDelayMs) {
+            await Bun.sleep(options.responseDelayMs);
+          }
+
+          const { pathname } = new URL(req.url);
+          if (pathname === "/hook/pre") {
+            return Response.json({ block: false });
+          }
+
+          return Response.json({ ok: true });
+        },
+      });
+
+      return {
+        origin: `http://${DAEMON_HOST}:${port}`,
+        stop: () => server.stop(true),
+      };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Failed to start latency stub daemon");
+}
+
+function runHook(
+  spec: HookLatencySpec,
+  home: string,
+  daemonOrigin?: string,
+): HookLatencySample {
   const input = new TextEncoder().encode(JSON.stringify(spec.input));
   const started = performance.now();
   const result = Bun.spawnSync({
     cmd: [spec.binaryPath],
-    env: { ...process.env, HOME: home },
+    env: {
+      ...process.env,
+      HOME: home,
+      ...(daemonOrigin ? { AGENTCTL_DAEMON_HTTP_ORIGIN: daemonOrigin } : {}),
+    },
     stdin: input,
     stdout: "pipe",
     stderr: "pipe",
@@ -178,11 +220,14 @@ function measureScenario(
   scenario: HookLatencyScenario,
   home: string,
   runs: number,
+  daemonOrigin?: string,
 ): HookLatencyRow[] {
   const rows: HookLatencyRow[] = [];
 
   for (const spec of HOOK_LATENCY_SPECS) {
-    const samples = Array.from({ length: runs }, () => runHook(spec, home));
+    const samples = Array.from({ length: runs }, () =>
+      runHook(spec, home, daemonOrigin),
+    );
     const failed = samples.find((sample) => sample.exitCode !== 0);
     if (failed) {
       throw new Error(
@@ -207,6 +252,29 @@ export function assertLatencyBudgets(rows: HookLatencyRow[]): void {
   }
 }
 
+export function estimateCumulativeOverhead(
+  rows: HookLatencyRow[],
+  calls: number,
+  scenario: HookLatencyScenario = "normal",
+): CumulativeOverheadEstimate {
+  if (!Number.isInteger(calls) || calls < 1) {
+    throw new Error("calls must be a positive integer");
+  }
+
+  const matching = rows.filter((row) => row.scenario === scenario);
+  if (matching.length === 0) {
+    throw new Error(`No latency rows for ${scenario}`);
+  }
+
+  const worstHookP95 = Math.max(...matching.map((row) => row.summary.p95_ms));
+  return {
+    calls,
+    scenario,
+    worst_hook_p95_ms: worstHookP95,
+    estimated_total_p95_ms: roundMs(worstHookP95 * calls),
+  };
+}
+
 function printRows(rows: HookLatencyRow[]): void {
   console.log("hook,scenario,min_ms,avg_ms,p95_ms,max_ms");
   for (const row of rows) {
@@ -217,10 +285,24 @@ function printRows(rows: HookLatencyRow[]): void {
   }
 }
 
+function printCumulativeEstimate(estimate: CumulativeOverheadEstimate): void {
+  console.log(
+    `cumulative_p95_estimate,scenario=${estimate.scenario},calls=${estimate.calls},` +
+      `worst_hook_p95_ms=${estimate.worst_hook_p95_ms},` +
+      `estimated_total_p95_ms=${estimate.estimated_total_p95_ms}`,
+  );
+}
+
 async function main(): Promise<void> {
   const runs = Number(process.env.AGENTCTL_HOOK_LATENCY_RUNS ?? DEFAULT_RUNS);
   if (!Number.isInteger(runs) || runs < 1) {
     throw new Error("AGENTCTL_HOOK_LATENCY_RUNS must be a positive integer");
+  }
+  const cumulativeCalls = Number(
+    process.env.AGENTCTL_HOOK_LATENCY_CUMULATIVE_CALLS ?? DEFAULT_CUMULATIVE_CALLS,
+  );
+  if (!Number.isInteger(cumulativeCalls) || cumulativeCalls < 1) {
+    throw new Error("AGENTCTL_HOOK_LATENCY_CUMULATIVE_CALLS must be a positive integer");
   }
 
   buildHooks();
@@ -230,14 +312,23 @@ async function main(): Promise<void> {
   try {
     const stubDaemon = startStubDaemon();
     try {
-      rows.push(...measureScenario("normal", home, runs));
+      rows.push(...measureScenario("normal", home, runs, stubDaemon.origin));
     } finally {
       stubDaemon.stop();
     }
 
     await Bun.sleep(50);
+    const slowDaemon = startStubDaemon({ responseDelayMs: 100 });
+    try {
+      rows.push(...measureScenario("slow-daemon", home, runs, slowDaemon.origin));
+    } finally {
+      slowDaemon.stop();
+    }
+
+    await Bun.sleep(50);
     rows.push(...measureScenario("daemon-unavailable", home, runs));
     printRows(rows);
+    printCumulativeEstimate(estimateCumulativeOverhead(rows, cumulativeCalls));
     assertLatencyBudgets(rows);
   } finally {
     rmSync(home, { recursive: true, force: true });
