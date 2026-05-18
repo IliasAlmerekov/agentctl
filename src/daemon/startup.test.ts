@@ -96,7 +96,7 @@ describe("daemon startup errors", () => {
         setIntervalFn: noopInterval,
         logger: silentLogger,
       }),
-    ).toThrow(/schema version 999.*supports schema version 1.*move .* aside/s);
+    ).toThrow(/schema version 999.*supports schema version 2.*move .* aside/s);
   });
 
   test("creates a fresh database when one does not exist", () => {

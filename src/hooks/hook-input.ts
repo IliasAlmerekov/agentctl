@@ -37,10 +37,14 @@ export function validatePreToolUseInput(
   if (!isNonEmptyString(value.tool_name)) return null;
   if (!isRecord(value.tool_input)) return null;
 
+  const cwd = value.cwd;
+  if (cwd !== undefined && typeof cwd !== "string") return null;
+
   return {
     session_id: value.session_id,
     tool_name: value.tool_name,
     tool_input: value.tool_input,
+    ...(cwd !== undefined ? { cwd } : {}),
   };
 }
 
@@ -88,9 +92,13 @@ export function validateSubagentEventInput(
     return null;
   }
 
+  const cwd = value.cwd;
+  if (cwd !== undefined && typeof cwd !== "string") return null;
+
   return {
     session_id: value.session_id,
     parent_session_id: parentSessionId,
     description,
+    ...(cwd !== undefined ? { cwd } : {}),
   };
 }

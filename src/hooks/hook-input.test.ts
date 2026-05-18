@@ -99,6 +99,46 @@ describe("hook input validation", () => {
   test("rejects invalid JSON before validation", () => {
     expect(parseHookInput("{bad json", validatePreToolUseInput)).toBeNull();
   });
+
+  test("passes cwd through PreToolUse input when present", () => {
+    expect(
+      validatePreToolUseInput({
+        session_id: "session-a",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+        cwd: "/home/user/project",
+      }),
+    ).toEqual({
+      session_id: "session-a",
+      tool_name: "Bash",
+      tool_input: { command: "ls" },
+      cwd: "/home/user/project",
+    });
+  });
+
+  test("accepts PreToolUse input without cwd for backward compatibility", () => {
+    expect(
+      validatePreToolUseInput({
+        session_id: "session-a",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+      })?.cwd,
+    ).toBeUndefined();
+  });
+
+  test("passes cwd through SubagentEvent input when present", () => {
+    expect(
+      validateSubagentEventInput({
+        session_id: "child",
+        parent_session_id: "parent",
+        cwd: "/home/user/project",
+      }),
+    ).toEqual({
+      session_id: "child",
+      parent_session_id: "parent",
+      cwd: "/home/user/project",
+    });
+  });
 });
 
 describe("hook entrypoint malformed input handling", () => {

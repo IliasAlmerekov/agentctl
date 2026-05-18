@@ -317,4 +317,25 @@ describe("handlePreTool", () => {
     expect(event?.message).toContain("5");
     expect(calls?.count).toBe(4);
   });
+
+  test("stores cwd when creating an agent via pre-tool hook", () => {
+    const db = createTestDb();
+
+    handlePreTool(
+      {
+        session_id: "cwd-session",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+        cwd: "/home/user/my-project",
+      },
+      db,
+    );
+
+    const row = db
+      .query<{ cwd: string | null }, string>(
+        "SELECT cwd FROM agents WHERE session_id = ?",
+      )
+      .get("cwd-session");
+    expect(row?.cwd).toBe("/home/user/my-project");
+  });
 });
