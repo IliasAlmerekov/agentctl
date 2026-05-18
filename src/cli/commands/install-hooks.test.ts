@@ -24,6 +24,37 @@ function hookCommands(settings: unknown, event: HookEvent): string[] {
 }
 
 describe("installAgentctlHooksInSettings", () => {
+  test("repairs stale agentctl hook entries from a custom AGENTCTL_HOME path", () => {
+    const newHooksDir = "/home/user/.agentctl/bin/hooks";
+    const oldCustomHooksDir = "/opt/agentctl/bin/hooks";
+
+    const result = installAgentctlHooksInSettings(
+      {
+        hooks: {
+          PreToolUse: [
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: join(oldCustomHooksDir, "pre-tool-use"),
+                },
+              ],
+            },
+          ],
+          PostToolUse: [],
+          SubagentStart: [],
+          SubagentStop: [],
+        },
+      },
+      newHooksDir,
+    );
+
+    const commands = hookCommands(result.settings, "PreToolUse");
+    expect(commands).not.toContain(join(oldCustomHooksDir, "pre-tool-use"));
+    expect(commands).toContain(join(newHooksDir, "pre-tool-use"));
+  });
+
   test("repairs stale agentctl hook entries and keeps unrelated hooks", () => {
     const homeDir = "/tmp/agentctl-install-home";
     const hooksDir = join(homeDir, ".agentctl", "bin", "hooks");
