@@ -67,4 +67,4 @@ Stronger guarantees are out of scope for v0.2. Future options include cosign/Sig
 
 ## Supply-chain check
 
-Run `bun run audit` (alias for `bun audit`) to check installed dependencies against the npm advisory database. The current release verified `No vulnerabilities found`.
+Run `bun run audit` (alias for `bun audit`) to check installed dependencies against the npm advisory database.
