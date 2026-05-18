@@ -54,6 +54,7 @@ export type AgentEvent =
 
 export interface WSData {
   connectedAt: number;
+  authenticated: boolean;
 }
 
 export interface InjectRequest {

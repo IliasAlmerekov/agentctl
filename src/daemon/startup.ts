@@ -3,8 +3,9 @@ import { mkdirSync } from "fs";
 import { authTokenPath, readAuthToken } from "../auth.ts";
 import { DAEMON_HOST, DAEMON_PORT, daemonListenOptions } from "../config.ts";
 import type { AgentEvent, WSData } from "../types.ts";
-import { getAgents, prepareDaemonDatabase, recordDaemonHeartbeat } from "./db.ts";
+import { prepareDaemonDatabase, recordDaemonHeartbeat } from "./db.ts";
 import { createDaemonFetch } from "./http.ts";
+import { createWsHandlers } from "./ws-handlers.ts";
 
 type ServeFn = typeof Bun.serve;
 type SetIntervalFn = typeof setInterval;
@@ -96,17 +97,7 @@ export function startDaemon(options: StartDaemonOptions = {}): DaemonRuntime {
     const server = serve<WSData>({
       ...daemonListenOptions(),
       fetch: createDaemonFetch(db, broadcast, { authToken }),
-
-      websocket: {
-        open(ws) {
-          wsClients.add(ws);
-          ws.send(JSON.stringify({ type: "agents_update", agents: getAgents(db) }));
-        },
-        close(ws) {
-          wsClients.delete(ws);
-        },
-        message() {},
-      },
+      websocket: createWsHandlers(db, wsClients, authToken),
     });
 
     const heartbeatTimer = setIntervalFn(

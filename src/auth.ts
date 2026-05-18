@@ -24,7 +24,3 @@ export function authHeaders(token: string): Record<string, string> {
 export function hasAuthHeader(req: Request, token: string): boolean {
   return req.headers.get(AUTH_HEADER) === token;
 }
-
-export function hasAuthQueryToken(req: Request, token: string): boolean {
-  return new URL(req.url).searchParams.get("token") === token;
-}

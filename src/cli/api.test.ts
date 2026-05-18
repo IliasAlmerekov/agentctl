@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { authHeaders, daemonWsUrlWithToken } from "./api.ts";
+import { authHeaders, daemonWsUrl } from "./api.ts";
+import { DAEMON_WS_ORIGIN } from "../config.ts";
 
 describe("CLI auth helpers", () => {
   test("builds the daemon auth header from a token", () => {
@@ -8,15 +9,8 @@ describe("CLI auth helpers", () => {
     });
   });
 
-  test("adds the auth token to websocket URLs", () => {
-    expect(daemonWsUrlWithToken("test-token")).toBe(
-      "ws://127.0.0.1:47823?token=test-token",
-    );
-  });
-
-  test("URL-encodes websocket auth tokens", () => {
-    expect(daemonWsUrlWithToken("token with spaces")).toBe(
-      "ws://127.0.0.1:47823?token=token+with+spaces",
-    );
+  test("websocket URL contains no token", () => {
+    expect(daemonWsUrl()).toBe(DAEMON_WS_ORIGIN);
+    expect(daemonWsUrl()).not.toContain("token");
   });
 });
