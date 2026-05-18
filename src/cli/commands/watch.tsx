@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { render, Box, Text, useInput } from "ink";
-import { daemonWsUrl, apiAgents } from "../api.ts";
+import { daemonWsUrl, daemonWsAuthMessage, apiAgents } from "../api.ts";
 import type { Agent, AgentEvent } from "../../types.ts";
 
 export type WatchGuardResult =
@@ -91,6 +91,7 @@ function Watch() {
       ws = new WebSocket(daemonWsUrl());
 
       ws.onopen = () => {
+        ws.send(daemonWsAuthMessage());
         setConnected(true);
         reconnectAttempt.current = 0;
       };

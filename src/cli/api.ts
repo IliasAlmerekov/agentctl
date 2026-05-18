@@ -56,10 +56,10 @@ export async function apiStatus() {
 
 export { authHeaders };
 
-export function daemonWsUrlWithToken(token: string): string {
-  return `${DAEMON_WS_ORIGIN}?${new URLSearchParams({ token }).toString()}`;
+export function daemonWsUrl(): string {
+  return DAEMON_WS_ORIGIN;
 }
 
-export function daemonWsUrl(): string {
-  return daemonWsUrlWithToken(readAuthToken());
+export function daemonWsAuthMessage(): string {
+  return JSON.stringify({ type: "auth", token: readAuthToken() });
 }

@@ -13,7 +13,7 @@ import { killAgent } from "./kill.ts";
 import { handlePostTool } from "./handlers/post-tool.ts";
 import { handlePreTool } from "./handlers/pre-tool.ts";
 import { handleSubagent } from "./handlers/subagent.ts";
-import { hasAuthHeader, hasAuthQueryToken } from "../auth.ts";
+import { hasAuthHeader } from "../auth.ts";
 
 type UpgradeServer = {
   upgrade(req: Request, options: { data: WSData }): boolean;
@@ -308,16 +308,7 @@ export function createDaemonFetch(
       return Response.json({ ok: true, running, total: agents.length });
     }
 
-    if (
-      authToken &&
-      server &&
-      isWebSocketRequest(req) &&
-      !hasAuthQueryToken(req, authToken)
-    ) {
-      return unauthorized();
-    }
-
-    if (server?.upgrade(req, { data: { connectedAt: Date.now() } })) {
+    if (server?.upgrade(req, { data: { connectedAt: Date.now(), authenticated: false } })) {
       return undefined;
     }
 

@@ -26,12 +26,15 @@ describe("local daemon auth beta gate", () => {
       "CLI_ENDPOINTS",
       "HOOK_ENDPOINTS",
       "hasAuthHeader(req, authToken)",
-      "hasAuthQueryToken(req, authToken)",
+    ]);
+    expectFileToContain("src/daemon/ws-handlers.ts", [
+      "type === \"auth\"",
+      "ws.close(4401)",
     ]);
     expectFileToContain("src/cli/api.ts", [
       "readAuthToken()",
       "authHeaders(token)",
-      "daemonWsUrlWithToken(readAuthToken())",
+      "daemonWsAuthMessage()",
     ]);
     expectFileToContain("src/hooks/daemon-client.ts", [
       "options.readToken ?? readAuthToken",
@@ -47,7 +50,7 @@ describe("local daemon auth beta gate", () => {
       "`~/.agentctl/auth-token`",
       AUTH_HEADER,
       "CLI requests and hook requests send the token",
-      "TUI WebSocket sends the same token",
+      "TUI WebSocket authenticates",
       "mode `0600`",
       "same user",
       "not a sandbox",

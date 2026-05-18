@@ -282,7 +282,7 @@ describe("daemon HTTP endpoints", () => {
     expect(events).toEqual([]);
   });
 
-  test("covers missing, invalid, and valid auth for websocket access", async () => {
+  test("accepts websocket upgrade without token in URL; auth happens via first message", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
       authToken: TEST_TOKEN,
@@ -295,18 +295,9 @@ describe("daemon HTTP endpoints", () => {
       },
     };
 
-    await expectUnauthorized(
-      await fetchDaemon(websocketRequest("/watch"), server),
-    );
-    await expectUnauthorized(
-      await fetchDaemon(websocketRequest(`/watch?token=${WRONG_TOKEN}`), server),
-    );
-    const validAuth = await fetchDaemon(
-      websocketRequest(`/watch?token=${TEST_TOKEN}`),
-      server,
-    );
+    const result = await fetchDaemon(websocketRequest("/watch"), server);
 
-    expect(validAuth).toBeUndefined();
+    expect(result).toBeUndefined();
     expect(upgrades).toBe(1);
   });
 
