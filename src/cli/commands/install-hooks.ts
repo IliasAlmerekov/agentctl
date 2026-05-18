@@ -39,6 +39,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+// Matches commands that were written by agentctl regardless of AGENTCTL_HOME location.
+// Agentctl always places hooks at $AGENTCTL_HOME/bin/hooks/<name>, so /bin/hooks/<managed-name>
+// is a sufficiently unique pattern. New entries also carry _agentctl:true on their parent entry.
+const MANAGED_HOOK_PATH_RE = new RegExp(
+  `/bin/hooks/(${Array.from(MANAGED_HOOK_NAMES).join("|")})$`,
+);
+
 function isManagedAgentctlHookCommand(command: unknown, hooksDir: string): boolean {
   if (typeof command !== "string") return false;
 
@@ -47,7 +54,11 @@ function isManagedAgentctlHookCommand(command: unknown, hooksDir: string): boole
     return false;
   }
 
-  return command.startsWith(`${hooksDir}/`) || command.includes("/.agentctl/bin/hooks/");
+  return command.startsWith(`${hooksDir}/`) || MANAGED_HOOK_PATH_RE.test(command);
+}
+
+function isManagedAgentctlEntry(entry: unknown): boolean {
+  return isRecord(entry) && entry._agentctl === true;
 }
 
 function repairExistingHookEntries(
@@ -63,6 +74,11 @@ function repairExistingHookEntries(
     .map((entry: HookEntry) => {
       if (!isRecord(entry) || !Array.isArray(entry.hooks)) return entry;
 
+      if (isManagedAgentctlEntry(entry)) {
+        repaired += entry.hooks.length;
+        return null;
+      }
+
       const keptHooks = entry.hooks.filter((hook) => {
         if (!isRecord(hook)) return true;
 
@@ -73,6 +89,7 @@ function repairExistingHookEntries(
 
       return { ...entry, hooks: keptHooks };
     })
+    .filter((entry): entry is HookEntry => entry !== null)
     .filter((entry: HookEntry) => {
       return !isRecord(entry) || !Array.isArray(entry.hooks) || entry.hooks.length > 0;
     });
@@ -97,6 +114,7 @@ export function installAgentctlHooksInSettings(
     next.hooks[eventName] = [
       ...repaired.entries,
       {
+        _agentctl: true,
         matcher: "",
         hooks: [{ type: "command", command: join(hooksDir, hookName) }],
       },

@@ -54,6 +54,17 @@ Startup logs are limited to the listening host/port. The auth token is loaded in
 
 The WebSocket uses first-message auth: the token is sent in the body of the first message rather than in the URL, so it does not appear in process lists or HTTP access logs at a reverse proxy.
 
+## Installer trust model
+
+The install script downloads the release binary and a `SHA256SUMS` file from the same GitHub Release origin, then verifies the checksum locally. This protects against:
+
+- Download corruption (bitflips, truncated transfers)
+- HTTPS MitM between GitHub and the user's machine
+
+It does **not** protect against a compromised release origin. If the GitHub account or release pipeline were compromised, an attacker could replace both the binary and the checksum file simultaneously. The checksum provides integrity, not authenticity.
+
+Stronger guarantees are out of scope for v0.2. Future options include cosign/Sigstore attestation (signature tied to the GitHub Actions OIDC identity, not just the release author's account) or SLSA provenance records.
+
 ## Supply-chain check
 
 Run `bun run audit` (alias for `bun audit`) to check installed dependencies against the npm advisory database. The current release verified `No vulnerabilities found`.
