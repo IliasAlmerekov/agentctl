@@ -91,7 +91,7 @@ function Watch() {
       ws = new WebSocket(daemonWsUrl());
 
       ws.onopen = () => {
-        ws.send(daemonWsAuthMessage());
+        ws?.send(daemonWsAuthMessage());
         setConnected(true);
         reconnectAttempt.current = 0;
       };
