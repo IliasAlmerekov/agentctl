@@ -19,13 +19,13 @@ export function handleSubagent(
   db: Database,
   broadcast: (event: AgentEvent) => void,
 ): { ok: boolean } {
-  const { session_id, parent_session_id, description } = input;
+  const { session_id, parent_session_id, description, cwd } = input;
 
   if (event === "start") {
     const depth = computeDepth(db, parent_session_id ?? null);
     db.run(
-      `INSERT INTO agents (session_id, parent_id, description, status, depth, tokens_used, started_at)
-       VALUES (?, ?, ?, 'running', ?, 0, ?)
+      `INSERT INTO agents (session_id, parent_id, description, status, depth, tokens_used, started_at, cwd)
+       VALUES (?, ?, ?, 'running', ?, 0, ?, ?)
        ON CONFLICT(session_id) DO UPDATE SET status = 'running', started_at = excluded.started_at`,
       [
         session_id,
@@ -33,6 +33,7 @@ export function handleSubagent(
         description ?? null,
         depth,
         Date.now(),
+        cwd ?? null,
       ],
     );
   } else {

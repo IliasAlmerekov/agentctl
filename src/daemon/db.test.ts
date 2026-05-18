@@ -371,3 +371,99 @@ describe("runtime data retention cleanup", () => {
     expect(injectionCount?.count).toBe(1);
   });
 });
+
+describe("cwd and multi-project support", () => {
+  test("getAgents includes cwd for each agent", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at, cwd)
+       VALUES ('proj-session', 'running', 1_000, '/home/user/my-project')`,
+    );
+
+    const agents = getAgents(db);
+
+    expect(agents[0].cwd).toBe("/home/user/my-project");
+  });
+
+  test("getAgents returns null cwd for agents without a recorded directory", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES ('no-cwd-session', 'running', 1_000)`,
+    );
+
+    const agents = getAgents(db);
+
+    expect(agents[0].cwd).toBeNull();
+  });
+
+  test("getAgents returns more than 100 agents", () => {
+    const db = createTestDb();
+    db.exec("BEGIN");
+    for (let i = 0; i < 101; i++) {
+      db.run(
+        `INSERT INTO agents (session_id, status, started_at) VALUES (?, 'done', ?)`,
+        [`session-${i}`, i],
+      );
+    }
+    db.exec("COMMIT");
+
+    expect(getAgents(db)).toHaveLength(101);
+  });
+
+  test("auto-migrates a v1 database to v2 by adding the cwd column", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE agents (
+        session_id     TEXT PRIMARY KEY,
+        parent_id      TEXT REFERENCES agents(session_id),
+        description    TEXT,
+        status         TEXT DEFAULT 'running',
+        depth          INTEGER DEFAULT 0,
+        tokens_used    INTEGER DEFAULT 0,
+        token_budget   INTEGER,
+        started_at     INTEGER,
+        ended_at       INTEGER
+      );
+      CREATE TABLE schema_metadata (
+        key         TEXT PRIMARY KEY,
+        value       TEXT NOT NULL,
+        updated_at  INTEGER NOT NULL
+      );
+      INSERT INTO schema_metadata (key, value, updated_at) VALUES ('schema_version', '1', 0);
+    `);
+
+    assertSupportedSchema(db);
+
+    expect(getSchemaVersion(db)).toBe(2);
+    const col = db
+      .query<{ name: string }, string>(
+        "SELECT name FROM pragma_table_info('agents') WHERE name = ?",
+      )
+      .get("cwd");
+    expect(col?.name).toBe("cwd");
+  });
+
+  test("v1 agents retain their data after migration with cwd set to null", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE agents (
+        session_id TEXT PRIMARY KEY,
+        status TEXT,
+        started_at INTEGER
+      );
+      INSERT INTO agents (session_id, status, started_at) VALUES ('old-session', 'done', 1000);
+      CREATE TABLE schema_metadata (
+        key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
+      );
+      INSERT INTO schema_metadata (key, value, updated_at) VALUES ('schema_version', '1', 0);
+    `);
+
+    assertSupportedSchema(db);
+
+    const row = db
+      .query<{ cwd: string | null }, []>("SELECT cwd FROM agents")
+      .get();
+    expect(row?.cwd).toBeNull();
+  });
+});

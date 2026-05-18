@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import type { Agent } from "../types.ts";
 
 export const DEFAULT_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface DaemonBoot {
   boot_id: string;
@@ -28,7 +28,8 @@ export function initSchema(db: Database): void {
       tokens_used    INTEGER DEFAULT 0,
       token_budget   INTEGER,
       started_at     INTEGER,
-      ended_at       INTEGER
+      ended_at       INTEGER,
+      cwd            TEXT
     );
 
     CREATE TABLE IF NOT EXISTS tool_calls (
@@ -112,11 +113,20 @@ export function assertSupportedSchema(db: Database): void {
   }
   if (version === CURRENT_SCHEMA_VERSION) return;
 
-  throw new Error(
-    `unsupported schema version ${version}. ` +
-      `This binary supports schema version ${CURRENT_SCHEMA_VERSION}. ` +
-      `Upgrade the daemon binary or move ~/.agentctl/agents.db aside.`,
-  );
+  if (version > CURRENT_SCHEMA_VERSION) {
+    throw new Error(
+      `unsupported schema version ${version}. ` +
+        `This binary supports schema version ${CURRENT_SCHEMA_VERSION}. ` +
+        `Upgrade the daemon binary or move ~/.agentctl/agents.db aside.`,
+    );
+  }
+
+  // v1 → v2: add cwd column
+  if (version < 2) {
+    db.exec("ALTER TABLE agents ADD COLUMN cwd TEXT");
+  }
+
+  recordSchemaVersion(db);
 }
 
 export function reconcileRunningAgents(db: Database, now = Date.now()): void {
@@ -202,11 +212,11 @@ export function getAgents(db: Database): Agent[] {
         agents.token_budget,
         agents.started_at,
         agents.ended_at,
+        agents.cwd,
         agent_runtime.current_tool
        FROM agents
        LEFT JOIN agent_runtime ON agent_runtime.session_id = agents.session_id
-       ORDER BY started_at DESC
-       LIMIT 100`,
+       ORDER BY started_at DESC`,
     )
     .all();
 }

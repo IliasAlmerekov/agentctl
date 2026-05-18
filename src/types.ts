@@ -2,6 +2,7 @@ export interface PreToolUseInput {
   session_id: string;
   tool_name: string;
   tool_input: Record<string, unknown>;
+  cwd?: string;
 }
 
 export interface PostToolUseInput {
@@ -16,6 +17,7 @@ export interface SubagentEventInput {
   session_id: string;
   parent_session_id?: string;
   description?: string;
+  cwd?: string;
 }
 
 export interface DaemonDecision {
@@ -35,6 +37,7 @@ export interface Agent {
   started_at: number;
   ended_at: number | null;
   current_tool: string | null;
+  cwd: string | null;
 }
 
 export interface Injection {

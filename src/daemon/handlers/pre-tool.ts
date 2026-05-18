@@ -14,9 +14,9 @@ export function handlePreTool(
   db: Database,
   broadcast?: (event: AgentEvent) => void,
 ): DaemonDecision {
-  const { session_id, tool_name, tool_input } = input;
+  const { session_id, tool_name, tool_input, cwd } = input;
 
-  ensureAgent(db, session_id);
+  ensureAgent(db, session_id, undefined, cwd);
 
   // 1. Token budget check
   const agent = getAgent(db, session_id);

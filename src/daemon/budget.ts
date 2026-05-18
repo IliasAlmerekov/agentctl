@@ -11,12 +11,13 @@ export function ensureAgent(
   db: Database,
   sessionId: string,
   now: number = Date.now(),
+  cwd?: string,
 ): void {
   db.run(
-    `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
-     VALUES (?, 'running', 0, 0, ?)
+    `INSERT INTO agents (session_id, status, depth, tokens_used, started_at, cwd)
+     VALUES (?, 'running', 0, 0, ?, ?)
      ON CONFLICT(session_id) DO NOTHING`,
-    [sessionId, now],
+    [sessionId, now, cwd ?? null],
   );
 }
 
