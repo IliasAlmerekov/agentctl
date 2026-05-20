@@ -28,6 +28,11 @@ interface Flash {
   color: string;
 }
 
+interface PendingInject {
+  message: string;
+  sentAt: number;
+}
+
 const CONTEXT_WINDOW = 200_000;
 const FINISHED_VISIBLE_MS = 4 * 60 * 60 * 1_000; // hide finished sessions after 4 hours
 
@@ -138,10 +143,14 @@ function AgentCard({
   agent,
   selected,
   cardWidth,
+  pendingInject,
+  now,
 }: {
   agent: Agent;
   selected: boolean;
   cardWidth: number;
+  pendingInject: PendingInject | null;
+  now: number;
 }) {
   const color = statusColor(agent.status);
   const icon = statusIcon(agent.status);
@@ -153,6 +162,8 @@ function AgentCard({
     : null;
 
   const borderColor = selected ? "cyan" : agent.status === "running" ? "green" : "gray";
+  const pendingAgeSec = pendingInject ? Math.floor((now - pendingInject.sentAt) / 1000) : 0;
+  const injectStale = pendingAgeSec > 30;
 
   return (
     <Box
@@ -179,8 +190,13 @@ function AgentCard({
         <Text> </Text>
       )}
 
-      {/* Current tool */}
-      {agent.status === "running" && agent.current_tool ? (
+      {/* Current tool or inject pending */}
+      {pendingInject ? (
+        <Text color={injectStale ? "red" : "yellow"}>
+          {"⏳ inject pending"}{pendingAgeSec > 5 ? ` ${pendingAgeSec}s` : ""}
+          {injectStale ? " — agent idle?" : ""}
+        </Text>
+      ) : agent.status === "running" && agent.current_tool ? (
         <Text color="blue">{"↳ "}{truncate(agent.current_tool, innerWidth - 4)}</Text>
       ) : (
         <Text dimColor>{"  "}</Text>
@@ -229,10 +245,14 @@ function AgentGrid({
   agents,
   cursor,
   termWidth,
+  pendingInjections,
+  now,
 }: {
   agents: Agent[];
   cursor: number;
   termWidth: number;
+  pendingInjections: Map<string, PendingInject>;
+  now: number;
 }) {
   const cols = gridCols(termWidth);
   const cardWidth = Math.floor((termWidth - cols) / cols);
@@ -254,6 +274,8 @@ function AgentGrid({
                 agent={agent}
                 selected={agentIdx === cursor}
                 cardWidth={cardWidth}
+                pendingInject={pendingInjections.get(agent.session_id) ?? null}
+                now={now}
               />
             );
           })}
@@ -281,9 +303,12 @@ function InputField({ label, value }: { label: string; value: string }) {
 function HelpBar({ mode, selectedAgent, cols }: { mode: Mode; selectedAgent: Agent | null; cols: number }) {
   if (mode === "inject") {
     return (
-      <Text dimColor>
-        <Text color="cyan">{"Enter"}</Text>{" send  ·  "}<Text color="gray">{"Esc"}</Text>{" cancel"}
-      </Text>
+      <Box flexDirection="column">
+        <Text dimColor color="yellow">{"⚡ fires on next tool call — won't reach an idle agent"}</Text>
+        <Text dimColor>
+          <Text color="cyan">{"Enter"}</Text>{" send  ·  "}<Text color="gray">{"Esc"}</Text>{" cancel"}
+        </Text>
+      </Box>
     );
   }
   if (mode === "cap") {
@@ -331,6 +356,8 @@ function Watch() {
   const [mode, setMode] = useState<Mode>("browse");
   const [inputText, setInputText] = useState("");
   const [flash, setFlash] = useState<Flash | null>(null);
+  const [pendingInjections, setPendingInjections] = useState<Map<string, PendingInject>>(new Map());
+  const [now, setNow] = useState(Date.now());
   const reconnectAttempt = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -341,6 +368,11 @@ function Watch() {
     if (flashTimer.current) clearTimeout(flashTimer.current);
     setFlash({ text, color });
     flashTimer.current = setTimeout(() => setFlash(null), 2500);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -371,8 +403,14 @@ function Watch() {
           setAlerts((prev) => [...prev.slice(-4), `⚠  ${event.message}`]);
         if (event.type === "budget_exceeded")
           setAlerts((prev) => [...prev.slice(-4), `⚡ ${event.message}`]);
-        if (event.type === "injection_delivered")
-          showFlash(`✓ Message delivered to agent`, "green");
+        if (event.type === "injection_delivered") {
+          setPendingInjections(prev => {
+            const next = new Map(prev);
+            next.delete(event.session_id);
+            return next;
+          });
+          showFlash(`✓ Delivered: ${event.message.slice(0, 50)}${event.message.length > 50 ? "…" : ""}`, "green");
+        }
       };
     }
 
@@ -383,7 +421,6 @@ function Watch() {
       cancelled = true;
       ws?.close();
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      if (flashTimer.current) clearTimeout(flashTimer.current);
     };
   }, [showFlash]);
 
@@ -464,8 +501,12 @@ function Watch() {
         return;
       }
       if (mode === "inject") {
-        apiInject(selectedAgent.session_id, text)
-          .then(() => showFlash(`✓ Injected: ${text.slice(0, 40)}${text.length > 40 ? "…" : ""}`, "cyan"))
+        const sid = selectedAgent.session_id;
+        apiInject(sid, text)
+          .then(() => {
+            setPendingInjections(prev => new Map(prev).set(sid, { message: text, sentAt: Date.now() }));
+            showFlash(`⏳ Queued — fires on next tool call`, "yellow");
+          })
           .catch((err: unknown) =>
             showFlash(`✗ ${err instanceof Error ? err.message : String(err)}`, "red")
           );
@@ -532,7 +573,7 @@ function Watch() {
           <Text dimColor>{"No active agents — start a Claude Code session to see them here."}</Text>
         </Box>
       ) : (
-        <AgentGrid agents={agents} cursor={cursor} termWidth={termWidth} />
+        <AgentGrid agents={agents} cursor={cursor} termWidth={termWidth} pendingInjections={pendingInjections} now={now} />
       )}
 
       {/* Alerts */}
