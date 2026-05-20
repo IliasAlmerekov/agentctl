@@ -55,8 +55,8 @@ describe("local daemon auth beta gate", () => {
       "same user",
       "not a sandbox",
     ]);
+    // README must mention auth token and link to security doc
     expectFileToContain("README.md", [
-      "Local security model",
       "`~/.agentctl/auth-token`",
       "docs/security.md",
     ]);

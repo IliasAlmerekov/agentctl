@@ -1,37 +1,34 @@
 # agentctl
 
-> Sub-agent control plane for Claude Code.  
-> See what agents do. Steer them mid-run. Stop runaway loops.
+Your Claude Code agents are running. Do you know what they're doing?
 
 ---
 
-## The problem
+When Claude Code spawns sub-agents, you get a one-line terminal entry and zero
+control. When something goes wrong — a loop, a bad direction, a token blowout —
+your only option is `Ctrl+C`. Every agent dies. All context is lost.
 
-When Claude Code runs sub-agents, you have two options: watch a one-line terminal entry with no detail, or kill everything with `Ctrl+C` and lose all context. There is no middle ground.
+**agentctl solves this.** One command gives you a live dashboard of every
+session. You can redirect any agent mid-run, cap its token spend, or stop just
+that one — without touching the others.
 
 ```
-MONITORING  →  ✅ Solved (893⭐ repos, native Channels from Anthropic)
-CONTROL     →  ❌ Unsolved — agentctl lives here
+╭─ agentctl ──────────────────────────────╮  ╭─ myapp ─────────────────────────────────╮
+│ ● running                      running  │  │ ● running                      running  │
+│ ~/Projects/agentctl                     │  │ ~/Projects/myapp                        │
+│ ↳ Edit src/daemon/budget.ts             │  │ ↳ Bash                                  │
+│                                         │  │                                         │
+│ Context ████████████░░░░░░░░  90k/200k  │  │ Context ██████░░░░░░░░░░░░░░  55k/200k  │
+│                                         │  │                                         │
+│ 4m 32s                                  │  │ 12m 01s                                 │
+╰─────────────────────────────────────────╯  ╰─────────────────────────────────────────╯
+
+↑↓←→ navigate   i inject   k kill   c cap   q quit
 ```
 
-## What it does
+> 📽 A full demo GIF lives at [`docs/demo.gif`](docs/demo.gif).
 
-**Three capabilities, no more:**
-
-```bash
-# Inject a steering signal into a running agent
-agentctl inject <agent-id> "Stop building auth. Use Supabase Auth instead."
-
-# Cap an agent's approximate token budget
-agentctl cap <agent-id> --tokens 50000
-
-# Stop one agent at its next tool call boundary
-agentctl stop-next-tool-call <agent-id>
-```
-
-## Demo
-
-![agentctl demo](docs/demo.gif)
+---
 
 ## Install
 
@@ -39,111 +36,166 @@ agentctl stop-next-tool-call <agent-id>
 curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | bash
 ```
 
-By default, the installer downloads the `latest` assets from `https://github.com/IliasAlmerekov/agentctl/releases`. Set `AGENTCTL_VERSION` to pin a release tag:
+Pin a specific version with `AGENTCTL_VERSION`:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/IliasAlmerekov/agentctl/main/install.sh | AGENTCTL_VERSION=v0.2.0 bash
 ```
 
-For the detected platform, the release must include `SHA256SUMS` plus `agentctl-$platform.tar.gz`. That archive contains the CLI, daemon, and hook binaries. The installer verifies `SHA256SUMS` before extracting or installing downloaded binaries. This protects against download corruption and HTTPS MitM, but not against a compromised release origin — if the GitHub release itself were tampered with, both the binary and the checksum file would be replaced together. Stronger supply-chain guarantees (cosign/Sigstore attestation) are out of scope for v0.2.
+The installer downloads a release archive from
+`https://github.com/IliasAlmerekov/agentctl/releases`, verifies `SHA256SUMS`,
+installs CLI + daemon to `~/.agentctl/bin/` and hooks to
+`~/.agentctl/bin/hooks/`, generates `~/.agentctl/auth-token`, patches
+`~/.claude/settings.json`, and registers the daemon with launchd,
+`systemd --user`, or pm2.
 
-It installs CLI and daemon binaries to `~/.agentctl/bin/`, hook binaries to `~/.agentctl/bin/hooks/`, generates or reuses `~/.agentctl/auth-token`, patches `~/.claude/settings.json`, then registers the daemon with launchd, `systemd --user`, or pm2 when available. After install, restart your shell or reload your rc file, then run `agentctl status`.
-
-Supported and unsupported platforms are listed in `docs/platforms.md`.
-Step-by-step first-run onboarding is in `docs/onboarding.md`.
-Troubleshooting for daemon, PATH, stale DB, and hook config problems is in `docs/troubleshooting.md`.
-MVP out-of-scope items are listed in `docs/out-of-scope.md`.
-Launch release notes are in `docs/release-notes.md`, and changes are tracked in `CHANGELOG.md`.
-
-## Beta status
-
-agentctl is in the `0.2.0` public beta line. The public install path is the
-`main` branch installer plus GitHub Release archives, and the release smoke
-workflow verifies that path before a release is published.
-
-The supported beta release platforms are macOS Apple Silicon, macOS Intel, and
-Linux x64. Windows and Linux arm64 are not supported. See `docs/platforms.md`
-for the full platform matrix and unsupported cases.
-
-## Usage
-
-Implemented commands:
+Then:
 
 ```bash
-agentctl agents          # List all agents with token usage
-agentctl watch           # Live TUI — agent tree, token bars, loop alerts
-agentctl status          # Show daemon status
-agentctl inject <id> "message"
-agentctl cap <id> --tokens 50000
-agentctl stop-next-tool-call <id>
-agentctl kill <id>      # Legacy alias for stop-next-tool-call
-agentctl uninstall       # Remove hooks, daemon registration, and local files
+agentctl
 ```
 
-Unknown session IDs are reported as `not_found`: `inject`, `cap`,
-`stop-next-tool-call`, and `kill` print an error and exit non-zero instead of
-pretending that a mistyped agent ID was controlled.
+Done. The daemon starts automatically. Your sessions appear within a second of
+making a tool call.
 
-`cap` enforces an approximate token budget. agentctl uses hook-reported `tokens_used` when Claude Code provides it; when that field is unavailable, it falls back to a rough JSON-size estimate for tool input and response payloads.
+---
 
-`stop-next-tool-call` does not interrupt a tool that is already running. It marks
-the agent so its next tool call is blocked by `PreToolUse`; the legacy `kill`
-command is kept as an alias for the same hook-boundary behavior.
+## What you get
+
+Each card in the dashboard shows:
+
+- **Project name** — `agentctl` or `myapp`, not `session:b12e003c`
+- **Status** — `● running`, `✓ done`, `✗ killed`, `⚡ budget exceeded`
+- **Current tool** — what the agent is doing right now (`↳ Edit`, `↳ Bash`)
+- **Working directory** — so you know which terminal it came from
+- **Context bar** — how much of the 200k context window is used
+- **Budget bar** — if you set a cap, how close it is to the limit
+- **Duration** — how long it has been running
+
+---
+
+## Controls
+
+Everything from the TUI — no need to copy session IDs:
+
+| Key | What happens |
+|-----|-------------|
+| `↑↓←→` | Move between agent cards |
+| `i` | Type a message → agent reads it at its next tool call |
+| `k` | Stop agent at its next tool call boundary |
+| `c` | Set a token cap — agent stops when it hits the limit |
+| `q` | Quit the dashboard |
+
+**Redirect an agent mid-run:**
+```
+Press i → "Stop building auth. Use Supabase Auth instead." → Enter
+```
+The agent reads your message at its next tool call and adjusts. No restart,
+no context loss, other agents keep running.
+
+**Prevent a token blowout:**
+```
+Press c → 50000 → Enter
+```
+When the agent hits 50k tokens it receives: _"Budget exceeded. Summarise your
+work and stop."_
+
+---
+
+## CLI commands
+
+For scripting or when you don't need the TUI:
+
+```bash
+agentctl                              # Open the live dashboard (default)
+agentctl watch                        # Same, explicit
+agentctl agents                       # List all agents as text
+agentctl status                       # Daemon health check
+agentctl inject <id> "message"        # Inject from CLI
+agentctl cap <id> --tokens 50000      # Set token cap from CLI
+agentctl stop-next-tool-call <id>     # Stop at next tool call boundary
+agentctl kill <id>                    # Alias for stop-next-tool-call
+agentctl uninstall                    # Remove everything
+```
+
+`stop-next-tool-call` does not interrupt a tool that is already running. It
+marks the agent so its next tool call is blocked. Unknown session IDs are reported as `not_found` — `inject`, `cap`,
+`stop-next-tool-call`, and `kill` exit non-zero rather than silently doing nothing.
+
+`cap` enforces an approximate token budget. agentctl uses hook-reported `tokens_used` when Claude Code provides it; when that field is unavailable, it
+falls back to a rough JSON-size estimate for tool input and response payloads.
+
+---
 
 ## How it works
 
-Claude Code runs a hook script on every tool call. The hook calls the local daemon (`127.0.0.1:47823`) which decides whether to block, inject a message, or allow. The daemon tracks:
-
-- **Loop detection** — same tool + same args called 5× in 2 minutes → blocked
-- **Budget enforcement** — approximate tokens_used ≥ token_budget → blocked with summary request
-- **Injection queue** — pending steering signals delivered at the next tool call boundary
-
-If the daemon is unreachable, hooks exit `0` — Claude is never blocked by agentctl being down.
-
-The exact `exit(2)` blocking contract and limitations are documented in `docs/hook-contract.md`.
-
-## Local security model
-
-agentctl is a single-user local control plane. The daemon binds only to IPv4 loopback (`127.0.0.1:47823`) and requires the local token from `~/.agentctl/auth-token` for CLI, TUI WebSocket, and hook requests.
-
-This protects against unauthenticated local HTTP clients accidentally or opportunistically controlling agents through the daemon port. It does not protect against code already running as your user that can read files under your home directory, replace agentctl binaries, or edit Claude Code hook settings.
-
-A short security note is available in `docs/security.md`.
-
-## Architecture
-
 ```
-Claude Code (agent + sub-agents)
-         │ tool calls
-         ▼
-   Hook scripts (.ts)          ← <250ms p95 per call
-         │ HTTP POST 127.0.0.1:47823
-         ▼
-   agentctl daemon (Bun)
-   ├── SQLite: agents.db
-   ├── Loop detector
-   ├── Budget manager
-   ├── Injection queue
-   └── WebSocket → TUI
+Claude Code (agents + sub-agents)
+        │ every tool call triggers a hook  (<250ms p95 overhead)
+        ▼
+  Hook scripts  (5ms typical, fail-open)
+        │ HTTP POST  127.0.0.1:47823
+        ▼
+  agentctl daemon  (Bun, SQLite)
+  ├── Loop detector   — same tool + same args 5× in 2 min → blocked
+  ├── Budget enforcer — tokens_used ≥ token_budget → blocked
+  ├── Injection queue — your message delivered at next tool call
+  └── WebSocket broadcast → TUI (live updates, <1s latency)
 ```
+
+If the daemon is unreachable, hooks exit `0` — Claude is never blocked by
+agentctl being down. The hook contract is in [`docs/hook-contract.md`](docs/hook-contract.md).
+
+---
+
+## Security
+
+agentctl is a **single-user local control plane**. The daemon binds only to
+`127.0.0.1:47823` and requires the auth token from `~/.agentctl/auth-token`
+for every request — CLI, TUI WebSocket, and hooks alike.
+
+This protects against unauthenticated local clients. It does not protect
+against code running as the same user. See [`docs/security.md`](docs/security.md).
+
+---
+
+## Platforms
+
+| Platform | Supported |
+|----------|-----------|
+| macOS Apple Silicon | ✅ |
+| macOS Intel | ✅ |
+| Linux x64 | ✅ |
+| Windows | ❌ |
+| Linux arm64 | ❌ |
+
+---
+
+## Beta
+
+`0.2.0` public beta. Install path: `main` branch installer + GitHub Release
+archives for macOS and Linux x64. Windows and Linux arm64 are not supported.
+
+Changes: [`CHANGELOG.md`](CHANGELOG.md) · Release notes: [`docs/release-notes.md`](docs/release-notes.md) ·
+Onboarding: [`docs/onboarding.md`](docs/onboarding.md) ·
+Troubleshooting: [`docs/troubleshooting.md`](docs/troubleshooting.md) ·
+Out of scope: [`docs/out-of-scope.md`](docs/out-of-scope.md) ·
+Platforms: [`docs/platforms.md`](docs/platforms.md)
+
+---
 
 ## Development
 
-Requires [Bun](https://bun.sh).
+Requires [Bun](https://bun.sh) ≥ 1.1.
 
 ```bash
-bun install
-bun run dev:daemon      # daemon with hot reload
-bun run typecheck       # type check
-bun run build           # compile all binaries to dist/
+bun install && bun test && bun run typecheck
+bun run build:local   # → dist/agentctl  dist/agentctl-daemon  dist/hooks/
 ```
 
-## Stack
+Copy to your local install after building:
 
-| Component | Choice | Reason |
-|-----------|--------|--------|
-| Runtime | Bun | Compiled single-file binaries; hook latency is gated by `measure:hooks` |
-| Database | bun:sqlite | Native, WAL mode, no bindings |
-| TUI | Ink (React for terminal) | Declarative, composable |
-| CLI parser | commander | Lightweight, well-typed |
-| Distribution | bun build --compile + tar.gz | Compiled binaries in one archive per platform, no runtime required |
+```bash
+cp dist/agentctl ~/.agentctl/bin/agentctl
+cp dist/agentctl-daemon ~/.agentctl/bin/agentctl-daemon
+```
