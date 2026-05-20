@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { render, Box, Text, useInput } from "ink";
+import { render, Box, Text, useInput, useStdout } from "ink";
 import { daemonWsUrl, daemonWsAuthMessage, apiAgents, apiInject, apiCap, apiKill } from "../api.ts";
 import type { Agent, AgentEvent } from "../../types.ts";
 
@@ -28,26 +28,34 @@ interface Flash {
   color: string;
 }
 
+const CONTEXT_WINDOW = 200_000;
+
+function useTerminalWidth(): number {
+  const { stdout } = useStdout();
+  const [width, setWidth] = useState(stdout?.columns ?? 80);
+  useEffect(() => {
+    if (!stdout) return;
+    const handler = () => setWidth(stdout.columns ?? 80);
+    stdout.on("resize", handler);
+    return () => { stdout.off("resize", handler); };
+  }, [stdout]);
+  return width;
+}
+
+function gridCols(termWidth: number): number {
+  if (termWidth >= 160) return 3;
+  if (termWidth >= 100) return 2;
+  return 1;
+}
+
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 }
 
-function TokenBar({ used, budget }: { used: number; budget?: number }) {
-  if (!budget) {
-    return <Text dimColor>{formatTokens(used)}</Text>;
-  }
-  const pct = Math.min(used / budget, 1);
-  const filled = Math.round(pct * 12);
-  const bar = "█".repeat(filled) + "░".repeat(12 - filled);
-  const color = pct > 0.9 ? "red" : pct > 0.65 ? "yellow" : "green";
-  return (
-    <Text>
-      <Text color={color}>{bar}</Text>
-      <Text dimColor> {formatTokens(used)}/{formatTokens(budget)}</Text>
-    </Text>
-  );
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + "…";
 }
 
 function statusColor(status: Agent["status"]): string {
@@ -70,92 +78,223 @@ function statusIcon(status: Agent["status"]): string {
   }
 }
 
-function AgentRow({
-  agent,
-  selected,
-}: {
-  agent: Agent;
-  selected: boolean;
-}) {
-  const color = statusColor(agent.status);
-  const icon = statusIcon(agent.status);
-  const indent = (agent.depth ?? 0) * 2;
-  const label = agent.description ?? `session:${agent.session_id.slice(0, 8)}`;
+function statusLabel(status: Agent["status"]): string {
+  switch (status) {
+    case "running": return "running";
+    case "done": return "done";
+    case "killed": return "killed";
+    case "budget_exceeded": return "budget";
+    case "stale": return "stale";
+  }
+}
 
+function ProgressBar({
+  label,
+  used,
+  max,
+  barWidth,
+}: {
+  label: string;
+  used: number;
+  max: number;
+  barWidth: number;
+}) {
+  const pct = Math.min(used / max, 1);
+  const filled = Math.round(pct * barWidth);
+  const bar = "█".repeat(filled) + "░".repeat(barWidth - filled);
+  const color = pct > 0.9 ? "red" : pct > 0.65 ? "yellow" : "cyan";
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Text>{" ".repeat(indent)}</Text>
-        <Text color={selected ? "cyan" : undefined}>{selected ? "▶ " : "  "}</Text>
-        <Text color={color}>{icon} </Text>
-        <Text bold={selected} color={selected ? "white" : undefined}>
-          {label}{"  "}
-        </Text>
-        <TokenBar used={agent.tokens_used} budget={agent.token_budget ?? undefined} />
-        {agent.status === "running" && agent.current_tool && (
-          <Text dimColor>  ↳ {agent.current_tool}</Text>
-        )}
-      </Box>
-      {agent.status === "running" && agent.cwd && (
-        <Box>
-          <Text>{" ".repeat(indent + 4)}</Text>
-          <Text dimColor color="gray">
-            {agent.cwd.replace(process.env.HOME ?? "", "~")}
-          </Text>
-        </Box>
-      )}
+    <Box>
+      <Text dimColor>{label} </Text>
+      <Text color={color}>{bar}</Text>
+      <Text dimColor>{" "}{formatTokens(used)}<Text color="gray">/</Text>{formatTokens(max)}</Text>
     </Box>
   );
 }
 
-function Divider() {
-  return <Text dimColor>{"─".repeat(60)}</Text>;
+function AgentCard({
+  agent,
+  selected,
+  cardWidth,
+}: {
+  agent: Agent;
+  selected: boolean;
+  cardWidth: number;
+}) {
+  const color = statusColor(agent.status);
+  const icon = statusIcon(agent.status);
+  const label = agent.description ?? `session:${agent.session_id.slice(0, 8)}`;
+  const innerWidth = cardWidth - 2; // subtract border chars
+  const barWidth = Math.max(6, innerWidth - 20);
+  const cwd = agent.cwd
+    ? agent.cwd.replace(process.env.HOME ?? "", "~")
+    : null;
+
+  const borderColor = selected ? "cyan" : agent.status === "running" ? "green" : "gray";
+
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={borderColor}
+      width={cardWidth}
+      paddingX={1}
+    >
+      {/* Title */}
+      <Box gap={1}>
+        <Text color={color}>{icon}</Text>
+        <Text bold={selected} color={selected ? "cyan" : "white"}>
+          {truncate(label, innerWidth - 10)}
+        </Text>
+        <Box flexGrow={1} />
+        <Text dimColor color={color}>{statusLabel(agent.status)}</Text>
+      </Box>
+
+      {/* CWD */}
+      {cwd ? (
+        <Text dimColor>{truncate(cwd, innerWidth - 2)}</Text>
+      ) : (
+        <Text> </Text>
+      )}
+
+      {/* Current tool */}
+      {agent.status === "running" && agent.current_tool ? (
+        <Text color="blue">{"↳ "}{truncate(agent.current_tool, innerWidth - 4)}</Text>
+      ) : (
+        <Text dimColor>{"  "}</Text>
+      )}
+
+      {/* Progress bars */}
+      <Box flexDirection="column" marginTop={1}>
+        {agent.token_budget != null && (
+          <ProgressBar
+            label="Budget "
+            used={agent.tokens_used}
+            max={agent.token_budget}
+            barWidth={barWidth}
+          />
+        )}
+        <ProgressBar
+          label="Context"
+          used={agent.tokens_used}
+          max={CONTEXT_WINDOW}
+          barWidth={barWidth}
+        />
+      </Box>
+
+      {/* Runtime */}
+      <Box marginTop={1}>
+        <Text dimColor>
+          {formatElapsed(agent.started_at, agent.ended_at)}
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+function formatElapsed(startedAt: number, endedAt: number | null): string {
+  const end = endedAt ?? Date.now();
+  const ms = end - startedAt;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+function AgentGrid({
+  agents,
+  cursor,
+  termWidth,
+}: {
+  agents: Agent[];
+  cursor: number;
+  termWidth: number;
+}) {
+  const cols = gridCols(termWidth);
+  const cardWidth = Math.floor((termWidth - cols) / cols);
+
+  const rows: Agent[][] = [];
+  for (let i = 0; i < agents.length; i += cols) {
+    rows.push(agents.slice(i, i + cols));
+  }
+
+  return (
+    <Box flexDirection="column">
+      {rows.map((row, rowIdx) => (
+        <Box key={rowIdx} flexDirection="row">
+          {row.map((agent, colIdx) => {
+            const agentIdx = rowIdx * cols + colIdx;
+            return (
+              <AgentCard
+                key={agent.session_id}
+                agent={agent}
+                selected={agentIdx === cursor}
+                cardWidth={cardWidth}
+              />
+            );
+          })}
+        </Box>
+      ))}
+    </Box>
+  );
 }
 
 function InputField({ label, value }: { label: string; value: string }) {
   return (
-    <Box flexDirection="column" marginTop={1}>
-      <Text color="cyan" bold>{label}</Text>
-      <Box>
-        <Text color="cyan">❯ </Text>
-        <Text>{value}</Text>
-        <Text color="cyan">▌</Text>
+    <Box flexDirection="column" marginTop={1} paddingX={1}>
+      <Box borderStyle="round" borderColor="cyan" flexDirection="column" paddingX={1}>
+        <Text color="cyan" bold>{label}</Text>
+        <Box>
+          <Text color="cyan">{"❯ "}</Text>
+          <Text>{value}</Text>
+          <Text color="cyan">{"▌"}</Text>
+        </Box>
       </Box>
     </Box>
   );
 }
 
-function HelpBar({ mode, selectedAgent }: { mode: Mode; selectedAgent: Agent | null }) {
+function HelpBar({ mode, selectedAgent, cols }: { mode: Mode; selectedAgent: Agent | null; cols: number }) {
   if (mode === "inject") {
     return (
       <Text dimColor>
-        <Text color="cyan">Enter</Text> send  ·  <Text color="gray">Esc</Text> cancel
+        <Text color="cyan">{"Enter"}</Text>{" send  ·  "}<Text color="gray">{"Esc"}</Text>{" cancel"}
       </Text>
     );
   }
   if (mode === "cap") {
     return (
       <Text dimColor>
-        <Text color="cyan">Enter</Text> set cap  ·  <Text color="gray">Esc</Text> cancel
+        <Text color="cyan">{"Enter"}</Text>{" set cap  ·  "}<Text color="gray">{"Esc"}</Text>{" cancel"}
       </Text>
     );
   }
   if (mode === "confirm_kill") {
     return (
       <Text>
-        <Text color="red" bold>Kill agent? </Text>
-        <Text color="green">y</Text>
-        <Text dimColor>/</Text>
-        <Text color="gray">n</Text>
+        <Text color="red" bold>{"Kill agent? "}</Text>
+        <Text color="green">{"y"}</Text>
+        <Text dimColor>{"/"}</Text>
+        <Text color="gray">{"n"}</Text>
       </Text>
     );
   }
 
   const canAct = selectedAgent?.status === "running";
+  const nav = cols > 1 ? "↑↓←→" : "↑↓";
   return (
     <Text dimColor>
-      <Text color="cyan">↑↓</Text> navigate
-      {canAct && <Text>{"  ·  "}<Text color="yellow">i</Text>{" inject  ·  "}<Text color="red">k</Text>{" kill  ·  "}<Text color="blue">c</Text>{" cap"}</Text>}
+      <Text color="cyan">{nav}</Text>{" navigate"}
+      {canAct && (
+        <Text>
+          {"  ·  "}
+          <Text color="yellow">{"i"}</Text>{" inject  ·  "}
+          <Text color="red">{"k"}</Text>{" kill  ·  "}
+          <Text color="blue">{"c"}</Text>{" cap"}
+        </Text>
+      )}
       {"  ·  "}
       <Text color="gray">{"q"}</Text>{" quit"}
     </Text>
@@ -173,6 +312,8 @@ function Watch() {
   const reconnectAttempt = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const termWidth = useTerminalWidth();
+  const cols = gridCols(termWidth);
 
   const showFlash = useCallback((text: string, color: string) => {
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -229,11 +370,19 @@ function Watch() {
   useInput((input, key) => {
     if (mode === "browse") {
       if (key.upArrow) {
-        setCursor((c) => Math.max(0, c - 1));
+        setCursor((c) => Math.max(0, c - cols));
         return;
       }
       if (key.downArrow) {
-        setCursor((c) => Math.min(agents.length - 1, c + 1));
+        setCursor((c) => Math.min(agents.length - 1, c + cols));
+        return;
+      }
+      if (key.leftArrow) {
+        setCursor((c) => (c % cols === 0 ? c : c - 1));
+        return;
+      }
+      if (key.rightArrow) {
+        setCursor((c) => (c % cols === cols - 1 || c + 1 >= agents.length ? c : c + 1));
         return;
       }
       if (input === "q" || key.escape) {
@@ -276,7 +425,6 @@ function Watch() {
       return;
     }
 
-    // inject / cap input mode
     if (key.escape) {
       setMode("browse");
       setInputText("");
@@ -321,13 +469,11 @@ function Watch() {
       return;
     }
 
-    // Printable characters only (no control keys)
     if (input && !key.ctrl && !key.meta && input.length === 1) {
       setInputText((t) => t + input);
     }
   });
 
-  // keep cursor in bounds when agent list shrinks
   useEffect(() => {
     if (agents.length > 0 && cursor >= agents.length) {
       setCursor(agents.length - 1);
@@ -335,75 +481,72 @@ function Watch() {
   }, [agents.length, cursor]);
 
   const running = agents.filter((a) => a.status === "running").length;
+  const done = agents.filter((a) => a.status === "done").length;
 
   return (
-    <Box flexDirection="column" paddingX={1} paddingY={0}>
+    <Box flexDirection="column">
       {/* Header */}
-      <Box gap={2} marginBottom={1}>
-        <Text bold color="cyan">agentctl</Text>
-        <Text dimColor>
-          {running > 0 ? (
-            <Text><Text color="green">●</Text> {running} running</Text>
-          ) : (
-            "idle"
-          )}
-        </Text>
-        {!connected && (
-          <Text color="red">disconnected — reconnecting…</Text>
-        )}
-      </Box>
-
-      <Divider />
-
-      {/* Agent list */}
-      <Box flexDirection="column" marginY={1}>
-        {agents.length === 0 ? (
-          <Text dimColor>  no active agents — start a Claude Code session</Text>
+      <Box paddingX={1} gap={2} marginBottom={1}>
+        <Text bold color="cyan">{"agentctl"}</Text>
+        <Text dimColor>{"watch"}</Text>
+        <Text>{"  "}</Text>
+        {running > 0 ? (
+          <Text><Text color="green">{"● "}</Text><Text bold>{String(running)}</Text>{" running"}</Text>
         ) : (
-          agents.map((a, i) => (
-            <AgentRow key={a.session_id} agent={a} selected={i === cursor} />
-          ))
+          <Text dimColor>{"idle"}</Text>
+        )}
+        {done > 0 && (
+          <Text dimColor>{"· "}{String(done)}{" done"}</Text>
+        )}
+        <Box flexGrow={1} />
+        {!connected && (
+          <Text color="red">{"⚡ reconnecting…"}</Text>
         )}
       </Box>
+
+      {/* Grid or empty state */}
+      {agents.length === 0 ? (
+        <Box paddingX={2} paddingY={2}>
+          <Text dimColor>{"No active agents — start a Claude Code session to see them here."}</Text>
+        </Box>
+      ) : (
+        <AgentGrid agents={agents} cursor={cursor} termWidth={termWidth} />
+      )}
 
       {/* Alerts */}
       {alerts.length > 0 && (
-        <>
-          <Divider />
-          <Box flexDirection="column" marginTop={1}>
-            {alerts.map((a, i) => (
-              <Text key={i} color="yellow">{a}</Text>
-            ))}
-          </Box>
-        </>
+        <Box flexDirection="column" paddingX={1} marginTop={1}>
+          {alerts.map((a, i) => (
+            <Text key={i} color="yellow">{a}</Text>
+          ))}
+        </Box>
       )}
 
       {/* Input modal */}
       {mode === "inject" && (
         <InputField
-          label={`Inject message → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
+          label={`Inject → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
           value={inputText}
         />
       )}
       {mode === "cap" && (
         <InputField
-          label={`Set token cap → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
+          label={`Set cap → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
           value={inputText}
         />
       )}
 
-      {/* Flash notification */}
+      {/* Flash */}
       {flash && (
-        <Box marginTop={1}>
+        <Box paddingX={1} marginTop={1}>
           <Text color={flash.color}>{flash.text}</Text>
         </Box>
       )}
 
       {/* Footer */}
-      <Box marginTop={1}>
-        <Divider />
+      <Box paddingX={1} marginTop={1}>
+        <HelpBar mode={mode} selectedAgent={selectedAgent} cols={cols} />
       </Box>
-      <HelpBar mode={mode} selectedAgent={selectedAgent} />
     </Box>
   );
 }
