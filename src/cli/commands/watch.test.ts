@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { reconnectDelay, watchGuard, filterRecentAgents } from "./watch.tsx";
+import { reconnectDelay, watchGuard, filterRecentAgents, agentLabel } from "./watch.tsx";
 import type { Agent } from "../../types.ts";
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
@@ -18,6 +18,30 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     ...overrides,
   };
 }
+
+describe("agentLabel", () => {
+  test("uses description when set", () => {
+    expect(agentLabel({ description: "red-tester", cwd: "/tmp", session_id: "abc" })).toBe("red-tester");
+  });
+
+  test("uses cwd basename when no description", () => {
+    expect(agentLabel({ description: null, cwd: "/home/user/Projects/agentctl", session_id: "abc" }, "/home/user")).toBe("agentctl");
+  });
+
+  test("strips home prefix from cwd", () => {
+    expect(agentLabel({ description: null, cwd: "/home/alice/work", session_id: "abc" }, "/home/alice")).toBe("work");
+  });
+
+  test("falls back to session id prefix when no description or cwd", () => {
+    expect(agentLabel({ description: null, cwd: null, session_id: "b12e003c-1234" })).toBe("session:b12e003c");
+  });
+
+  test("handles root cwd gracefully", () => {
+    const result = agentLabel({ description: null, cwd: "/", session_id: "abc" });
+    expect(typeof result).toBe("string");
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
 
 describe("watchGuard", () => {
   test("allows TTY stdin and stdout", () => {
