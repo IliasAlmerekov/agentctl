@@ -102,7 +102,12 @@ export function assertSupportedSchema(db: Database): void {
       "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_metadata'",
     )
     .get();
-  if (!tableExists) return;
+
+  if (!tableExists) {
+    // Pre-metadata DB (v1): apply v1→v2 migration and let initSchema finish setup.
+    try { db.exec("ALTER TABLE agents ADD COLUMN cwd TEXT"); } catch { /* already exists */ }
+    return;
+  }
 
   const version = getSchemaVersion(db);
   if (version === null) {

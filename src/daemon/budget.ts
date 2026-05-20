@@ -16,7 +16,11 @@ export function ensureAgent(
   db.run(
     `INSERT INTO agents (session_id, status, depth, tokens_used, started_at, cwd)
      VALUES (?, 'running', 0, 0, ?, ?)
-     ON CONFLICT(session_id) DO NOTHING`,
+     ON CONFLICT(session_id) DO UPDATE SET
+       status = 'running',
+       ended_at = NULL,
+       cwd = COALESCE(excluded.cwd, agents.cwd)
+     WHERE agents.status = 'stale'`,
     [sessionId, now, cwd ?? null],
   );
 }

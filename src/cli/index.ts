@@ -82,4 +82,7 @@ program
   .description("Remove agentctl hooks, daemon registration, and local files")
   .action(() => cmdUninstall());
 
+// No subcommand → open the TUI directly
+program.action(() => cmdWatch());
+
 program.parse(process.argv);

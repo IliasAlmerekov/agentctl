@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { render, Box, Text, useInput, useStdout } from "ink";
-import { daemonWsUrl, daemonWsAuthMessage, apiAgents, apiInject, apiCap, apiKill } from "../api.ts";
+import { daemonWsUrl, daemonWsAuthMessage, apiAgents, apiInject, apiCap, apiKill, apiStatus } from "../api.ts";
 import type { Agent, AgentEvent } from "../../types.ts";
 
 export type WatchGuardResult =
@@ -29,6 +29,15 @@ interface Flash {
 }
 
 const CONTEXT_WINDOW = 200_000;
+const FINISHED_VISIBLE_MS = 4 * 60 * 60 * 1_000; // hide finished sessions after 4 hours
+
+export function filterRecentAgents(agents: Agent[], now = Date.now()): Agent[] {
+  return agents.filter((a) => {
+    if (a.status === "running") return true;
+    const anchor = a.ended_at ?? a.started_at;
+    return now - anchor < FINISHED_VISIBLE_MS;
+  });
+}
 
 function useTerminalWidth(): number {
   const { stdout } = useStdout();
@@ -344,7 +353,7 @@ function Watch() {
 
       ws.onmessage = (e) => {
         const event: AgentEvent = JSON.parse(e.data as string);
-        if (event.type === "agents_update") setAgents(event.agents);
+        if (event.type === "agents_update") setAgents(filterRecentAgents(event.agents));
         if (event.type === "loop_detected")
           setAlerts((prev) => [...prev.slice(-4), `⚠  ${event.message}`]);
         if (event.type === "budget_exceeded")
@@ -354,7 +363,7 @@ function Watch() {
       };
     }
 
-    apiAgents().then(setAgents).catch(() => {});
+    apiAgents().then((a) => setAgents(filterRecentAgents(a))).catch(() => {});
     connect();
 
     return () => {
@@ -551,6 +560,29 @@ function Watch() {
   );
 }
 
+async function tryStartDaemon(): Promise<void> {
+  try {
+    await apiStatus();
+    return;
+  } catch {
+    // daemon not reachable
+  }
+
+  const agentctlHome =
+    process.env.AGENTCTL_HOME ?? `${process.env.HOME}/.agentctl`;
+  const daemonBin = `${agentctlHome}/bin/agentctl-daemon`;
+
+  try {
+    if (!await Bun.file(daemonBin).exists()) return;
+    const proc = Bun.spawn([daemonBin], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    proc.unref();
+  } catch {
+    // TUI will show reconnecting state
+  }
+}
+
 export function cmdWatch() {
   const guard = watchGuard({
     stdin: process.stdin.isTTY,
@@ -560,5 +592,5 @@ export function cmdWatch() {
     console.error(guard.message);
     process.exit(guard.exitCode);
   }
-  render(<Watch />);
+  tryStartDaemon().then(() => render(<Watch />));
 }
