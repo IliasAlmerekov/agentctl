@@ -31,6 +31,19 @@ interface Flash {
 const CONTEXT_WINDOW = 200_000;
 const FINISHED_VISIBLE_MS = 4 * 60 * 60 * 1_000; // hide finished sessions after 4 hours
 
+export function agentLabel(
+  agent: Pick<Agent, "description" | "cwd" | "session_id">,
+  home = process.env.HOME ?? "",
+): string {
+  if (agent.description) return agent.description;
+  if (agent.cwd) {
+    const path = home ? agent.cwd.replace(home, "~") : agent.cwd;
+    const parts = path.split("/").filter(Boolean);
+    return parts[parts.length - 1] ?? path;
+  }
+  return `session:${agent.session_id.slice(0, 8)}`;
+}
+
 export function filterRecentAgents(agents: Agent[], now = Date.now()): Agent[] {
   return agents.filter((a) => {
     if (a.status === "running") return true;
@@ -132,7 +145,7 @@ function AgentCard({
 }) {
   const color = statusColor(agent.status);
   const icon = statusIcon(agent.status);
-  const label = agent.description ?? `session:${agent.session_id.slice(0, 8)}`;
+  const label = agentLabel(agent);
   const innerWidth = cardWidth - 2; // subtract border chars
   const barWidth = Math.max(6, innerWidth - 20);
   const cwd = agent.cwd
@@ -534,13 +547,13 @@ function Watch() {
       {/* Input modal */}
       {mode === "inject" && (
         <InputField
-          label={`Inject → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
+          label={`Inject → ${selectedAgent ? agentLabel(selectedAgent) : ""}`}
           value={inputText}
         />
       )}
       {mode === "cap" && (
         <InputField
-          label={`Set cap → ${selectedAgent?.description ?? selectedAgent?.session_id.slice(0, 8) ?? ""}`}
+          label={`Set cap → ${selectedAgent ? agentLabel(selectedAgent) : ""}`}
           value={inputText}
         />
       )}
