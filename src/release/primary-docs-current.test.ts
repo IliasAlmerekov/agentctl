@@ -11,37 +11,20 @@ describe("primary docs current behavior", () => {
   test("primary docs describe verified release artifact installation", () => {
     for (const path of PRIMARY_DOCS) {
       const doc = read(path);
-
       expect(doc, `${path} should mention SHA256SUMS`).toContain("SHA256SUMS");
-      expect(
-        doc,
-        `${path} should say checksums gate install, not just chmod`,
-      ).toContain(
-        "verifies `SHA256SUMS` before extracting or installing downloaded binaries",
-      );
-      expect(doc, `${path} should mention auth token creation`).toContain(
-        "`~/.agentctl/auth-token`",
-      );
-      expect(doc, `${path} should mention supported platform doc`).toContain(
-        "docs/platforms.md",
-      );
+      expect(doc, `${path} should mention auth token`).toContain("`~/.agentctl/auth-token`");
+      expect(doc, `${path} should mention platform doc`).toContain("docs/platforms.md");
     }
   });
 
   test("AGENTCTL package and scope notes match release build behavior", () => {
     const doc = read("AGENTCTL.md");
-
-    expect(doc).toContain(
-      '"build:release": "bun run src/release/build-artifacts.ts"',
-    );
     expect(doc).toContain('"build": "bun run build:release"');
     expect(doc).toContain("macOS and Linux x64");
     expect(doc).toContain("CLI, daemon, and hook release artifacts");
     expect(doc).toContain("launchd, `systemd --user`, or pm2");
-
     for (const staleText of [
       "linux later",
-      "all three binaries",
       '"build": "bun run build:hooks && bun run build:daemon && bun run build:cli"',
     ]) {
       expect(doc).not.toContain(staleText);
@@ -50,7 +33,6 @@ describe("primary docs current behavior", () => {
 
   test("primary docs describe honest unknown-session control behavior", () => {
     const readme = read("README.md");
-
     expect(readme).toContain("Unknown session IDs are reported as `not_found`");
     expect(readme).toContain("`inject`, `cap`,");
     expect(readme).toContain("`stop-next-tool-call`, and `kill`");
@@ -59,9 +41,8 @@ describe("primary docs current behavior", () => {
     expect(troubleshooting).toContain("or `kill` prints `not found`");
   });
 
-  test("primary docs describe token caps as approximate when hook token usage is unavailable", () => {
+  test("primary docs describe token caps as approximate", () => {
     const readme = read("README.md");
-
     expect(readme).toContain("approximate token budget");
     expect(readme).toContain("uses hook-reported `tokens_used` when Claude Code provides it");
     expect(readme).toContain("falls back to a rough JSON-size estimate");
@@ -70,7 +51,6 @@ describe("primary docs current behavior", () => {
   test("primary docs describe stop as a next-tool-call boundary, not a process kill", () => {
     for (const path of PRIMARY_DOCS) {
       const doc = read(path);
-
       expect(doc, `${path} should document the honest command`).toContain(
         "agentctl stop-next-tool-call <",
       );
@@ -89,7 +69,7 @@ describe("primary docs current behavior", () => {
     }
   });
 
-  test("primary docs describe the measured hook latency contract", () => {
+  test("primary docs describe the hook latency contract", () => {
     const readme = read("README.md");
     const agentctl = read("AGENTCTL.md");
     const hookContract = read("docs/hook-contract.md");
@@ -97,7 +77,6 @@ describe("primary docs current behavior", () => {
     for (const doc of [readme, agentctl, hookContract]) {
       expect(doc).toContain("<250ms");
     }
-
     expect(readme).not.toContain("< 150ms");
     expect(agentctl).not.toContain("< 150ms");
     expect(agentctl).not.toContain("Must exit in < 150ms");

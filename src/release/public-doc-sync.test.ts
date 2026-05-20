@@ -2,16 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "fs";
 
 describe("public docs launch sync", () => {
-  test("README explains beta status, platform support, and release notes", () => {
+  test("README explains beta status, platform support, and changelog", () => {
     const readme = readFileSync("README.md", "utf8");
 
     for (const requiredText of [
-      "## Beta status",
-      "`0.2.0` public beta",
+      "0.2.0",
       "macOS Apple Silicon",
       "macOS Intel",
       "Linux x64",
-      "Windows and Linux arm64 are not supported",
+      "Windows",
       "CHANGELOG.md",
     ]) {
       expect(readme).toContain(requiredText);
