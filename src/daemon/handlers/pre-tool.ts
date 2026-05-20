@@ -41,6 +41,7 @@ export function handlePreTool(
   const injection = getPendingInjection(db, session_id);
   if (injection) {
     markDelivered(db, injection.id);
+    broadcast?.({ type: "injection_delivered", session_id, message: injection.message });
     return {
       block: true,
       reason:
