@@ -16,61 +16,74 @@ export function handlePreTool(
 ): DaemonDecision {
   const { session_id, tool_name, tool_input, cwd } = input;
 
-  ensureAgent(db, session_id, undefined, cwd);
+  let decision: DaemonDecision = { block: false };
+  let injectionEvent: { session_id: string; message: string } | null = null;
+  let loopEvent: { session_id: string; message: string } | null = null;
 
-  // 1. Token budget check
-  const agent = getAgent(db, session_id);
-  if (agent?.status === "killed") {
-    return {
-      block: true,
-      reason: `⛔ AGENTCTL: Agent ${session_id} has been killed by the operator. Stop immediately.`,
-    };
-  }
+  db.transaction(() => {
+    ensureAgent(db, session_id, undefined, cwd);
 
-  if (agent && isBudgetExceeded(agent)) {
-    return {
-      block: true,
-      reason:
-        `⚡ AGENTCTL: Token budget exceeded ` +
-        `(${agent.tokens_used.toLocaleString()} / ${agent.token_budget!.toLocaleString()} tokens). ` +
-        `Summarise your work so far and stop.`,
-    };
-  }
+    // 1. Token budget check
+    const agent = getAgent(db, session_id);
+    if (agent?.status === "killed") {
+      decision = {
+        block: true,
+        reason: `⛔ AGENTCTL: Agent ${session_id} has been killed by the operator. Stop immediately.`,
+      };
+      return;
+    }
 
-  // 2. Pending injection check
-  const injection = getPendingInjection(db, session_id);
-  if (injection) {
-    markDelivered(db, injection.id);
-    broadcast?.({ type: "injection_delivered", session_id, message: injection.message });
-    return {
-      block: true,
-      reason:
-        `⚡ STEERING SIGNAL from operator: ${injection.message}\n\n` +
-        `Acknowledge this and adjust your current approach accordingly.`,
-    };
-  }
+    if (agent && isBudgetExceeded(agent)) {
+      decision = {
+        block: true,
+        reason:
+          `⚡ AGENTCTL: Token budget exceeded ` +
+          `(${agent.tokens_used.toLocaleString()} / ${agent.token_budget!.toLocaleString()} tokens). ` +
+          `Summarise your work so far and stop.`,
+      };
+      return;
+    }
 
-  // 3. Loop detection
-  const loop = detectLoop(session_id, tool_name, tool_input, db);
-  if (loop.detected) {
-    const message =
-      `${tool_name} called with identical arguments ` +
-      `${loop.count}x in the last 2 minutes. Try a different approach.`;
-    broadcast?.({ type: "loop_detected", session_id, message });
-    return {
-      block: true,
-      reason: `⚠️ Loop detected: ${message}`,
-    };
-  }
+    // 2. Pending injection check
+    const injection = getPendingInjection(db, session_id);
+    if (injection) {
+      markDelivered(db, injection.id);
+      injectionEvent = { session_id, message: injection.message };
+      decision = {
+        block: true,
+        reason:
+          `⚡ STEERING SIGNAL from operator: ${injection.message}\n\n` +
+          `Acknowledge this and adjust your current approach accordingly.`,
+      };
+      return;
+    }
 
-  // 4. Record tool call and allow
-  db.run(
-    `INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at)
-     VALUES (?, ?, ?, ?)`,
-    [session_id, tool_name, hashArgs(tool_input), Date.now()],
-  );
-  setCurrentTool(db, session_id, tool_name);
-  broadcast?.({ type: "agents_update", agents: getAgents(db) });
+    // 3. Loop detection
+    const loop = detectLoop(session_id, tool_name, tool_input, db);
+    if (loop.detected) {
+      const message =
+        `${tool_name} called with identical arguments ` +
+        `${loop.count}x in the last 2 minutes. Try a different approach.`;
+      loopEvent = { session_id, message };
+      decision = {
+        block: true,
+        reason: `⚠️ Loop detected: ${message}`,
+      };
+      return;
+    }
 
-  return { block: false };
+    // 4. Record tool call and allow
+    db.run(
+      `INSERT INTO tool_calls (session_id, tool_name, arg_hash, called_at)
+       VALUES (?, ?, ?, ?)`,
+      [session_id, tool_name, hashArgs(tool_input), Date.now()],
+    );
+    setCurrentTool(db, session_id, tool_name);
+  })();
+
+  if (injectionEvent) broadcast?.({ type: "injection_delivered", session_id: injectionEvent.session_id, message: injectionEvent.message });
+  if (loopEvent) broadcast?.({ type: "loop_detected", session_id: loopEvent.session_id, message: loopEvent.message });
+  if (decision.block === false) broadcast?.({ type: "agents_update", agents: getAgents(db) });
+
+  return decision;
 }

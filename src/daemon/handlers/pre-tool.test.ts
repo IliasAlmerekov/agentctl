@@ -338,4 +338,37 @@ describe("handlePreTool", () => {
       .get("cwd-session");
     expect(row?.cwd).toBe("/home/user/my-project");
   });
+
+  test("tool_calls insert is rolled back when agent_runtime write fails (atomicity)", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, started_at)
+       VALUES (?, 'running', ?)`,
+      ["atomic-session", Date.now()],
+    );
+
+    db.exec(`
+      CREATE TRIGGER fail_runtime_insert
+      BEFORE INSERT ON agent_runtime
+      BEGIN
+        SELECT RAISE(FAIL, 'forced failure');
+      END;
+    `);
+
+    expect(() =>
+      handlePreTool(
+        {
+          session_id: "atomic-session",
+          tool_name: "Bash",
+          tool_input: { command: "rtk ls" },
+        },
+        db,
+      )
+    ).toThrow();
+
+    const calls = db
+      .query<{ count: number }, []>("SELECT COUNT(*) as count FROM tool_calls")
+      .get();
+    expect(calls?.count).toBe(0);
+  });
 });
