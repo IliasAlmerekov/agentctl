@@ -108,4 +108,47 @@ describe("handlePostTool", () => {
     expect(result).toEqual({ ok: true });
     expect(runtimeCount?.count).toBe(0);
   });
+
+  test("addTokens is rolled back when clearCurrentTool fails (atomicity)", () => {
+    const db = createTestDb();
+    db.run(
+      `INSERT INTO agents (session_id, status, tokens_used, started_at)
+       VALUES (?, 'running', 50, ?)`,
+      ["atomic-session", Date.now()],
+    );
+    db.run(
+      `INSERT INTO agent_runtime (session_id, current_tool)
+       VALUES (?, ?)`,
+      ["atomic-session", "Bash"],
+    );
+
+    db.exec(`
+      CREATE TRIGGER fail_runtime_delete
+      BEFORE DELETE ON agent_runtime
+      BEGIN
+        SELECT RAISE(FAIL, 'forced failure');
+      END;
+    `);
+
+    expect(() =>
+      handlePostTool(
+        {
+          session_id: "atomic-session",
+          tool_name: "Bash",
+          tool_input: { command: "rtk ls" },
+          tool_response: { ok: true },
+          tokens_used: 25,
+        },
+        db,
+        () => undefined,
+      )
+    ).toThrow();
+
+    const row = db
+      .query<{ tokens_used: number }, string>(
+        "SELECT tokens_used FROM agents WHERE session_id = ?",
+      )
+      .get("atomic-session");
+    expect(row?.tokens_used).toBe(50);
+  });
 });
