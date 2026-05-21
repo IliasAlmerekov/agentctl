@@ -1,5 +1,6 @@
 import { describe, expect, test, spyOn, mock } from "bun:test";
 import { reconnectDelay, watchGuard, filterRecentAgents, agentLabel, tryStartDaemon } from "./watch.tsx";
+import * as watchModule from "./watch.tsx";
 import * as apiModule from "../api.ts";
 import type { Agent } from "../../types.ts";
 
@@ -165,5 +166,50 @@ describe("reconnectDelay", () => {
   test("accepts custom base and max", () => {
     expect(reconnectDelay(0, 500, 3000)).toBe(500);
     expect(reconnectDelay(3, 500, 3000)).toBe(3000);
+  });
+});
+
+type WatchMode = "browse" | "inject" | "cap" | "confirm_kill";
+
+const watchTickMs = (watchModule as {
+  watchTickMs?: ((mode: WatchMode, running: number, pending: number) => number | null)
+    & ((arg: { mode: WatchMode; running: number; pending: number }) => number | null);
+}).watchTickMs;
+
+function callWatchTickMs(params: {
+  mode: WatchMode;
+  running: number;
+  pending: number;
+}): number | null | undefined {
+  if (typeof watchTickMs !== "function") return undefined;
+  if (watchTickMs.length <= 1) {
+    return (watchTickMs as (arg: typeof params) => number | null)(params);
+  }
+  return watchTickMs(params.mode, params.running, params.pending);
+}
+
+describe("watchTickMs", () => {
+  test("exports a helper for deciding watch refresh cadence", () => {
+    expect(typeof watchTickMs).toBe("function");
+  });
+
+  test("returns null when idle (no running agents and no pending injections)", () => {
+    expect(callWatchTickMs({ mode: "browse", running: 0, pending: 0 })).toBeNull();
+  });
+
+  test("returns null in inject mode even with running agents", () => {
+    expect(callWatchTickMs({ mode: "inject", running: 2, pending: 0 })).toBeNull();
+  });
+
+  test("returns null in cap mode even with pending injections", () => {
+    expect(callWatchTickMs({ mode: "cap", running: 0, pending: 1 })).toBeNull();
+  });
+
+  test("returns 5000ms when browsing with running agents", () => {
+    expect(callWatchTickMs({ mode: "browse", running: 1, pending: 0 })).toBe(5000);
+  });
+
+  test("returns 5000ms when browsing with pending injections", () => {
+    expect(callWatchTickMs({ mode: "browse", running: 0, pending: 3 })).toBe(5000);
   });
 });
