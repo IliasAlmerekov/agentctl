@@ -15,9 +15,10 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function get<T>(path: string): Promise<T> {
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${DAEMON_HTTP_ORIGIN}${path}`, {
     headers: authHeaders(readAuthToken()),
+    signal,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -50,8 +51,8 @@ export async function apiAgents() {
   return get<import("../types.ts").Agent[]>("/agents");
 }
 
-export async function apiStatus() {
-  return get<{ ok: boolean; running: number; total: number }>("/status");
+export async function apiStatus(signal?: AbortSignal) {
+  return get<{ ok: boolean; running: number; total: number }>("/status", signal);
 }
 
 export { authHeaders };

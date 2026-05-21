@@ -614,9 +614,15 @@ function Watch() {
   );
 }
 
-async function tryStartDaemon(): Promise<void> {
+export async function tryStartDaemon(): Promise<void> {
+  const signal = AbortSignal.timeout(2000);
   try {
-    await apiStatus();
+    await Promise.race([
+      apiStatus(signal),
+      new Promise<never>((_, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      }),
+    ]);
     return;
   } catch {
     // daemon not reachable
@@ -633,7 +639,7 @@ async function tryStartDaemon(): Promise<void> {
     });
     proc.unref();
   } catch {
-    // TUI will show reconnecting state
+    console.warn(`agentctl-daemon failed to start — check ${daemonBin} manually`);
   }
 }
 

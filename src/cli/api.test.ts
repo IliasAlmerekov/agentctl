@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { authHeaders, daemonWsUrl } from "./api.ts";
+import { authHeaders, daemonWsUrl, apiStatus } from "./api.ts";
 import { DAEMON_WS_ORIGIN } from "../config.ts";
+
+describe("apiStatus signal forwarding", () => {
+  test("throws when called with an already-aborted signal", async () => {
+    const aborted = AbortSignal.abort();
+    await expect(apiStatus(aborted)).rejects.toThrow();
+  });
+});
 
 describe("CLI auth helpers", () => {
   test("builds the daemon auth header from a token", () => {
