@@ -16,46 +16,56 @@ export function handlePreTool(
 ): DaemonDecision {
   const { session_id, tool_name, tool_input, cwd } = input;
 
-  let decision: DaemonDecision = { block: false };
-  let injectionEvent: { session_id: string; message: string } | null = null;
-  let loopEvent: { session_id: string; message: string } | null = null;
+  type TxResult = {
+    decision: DaemonDecision;
+    injectionEvent: { session_id: string; message: string } | null;
+    loopEvent: { session_id: string; message: string } | null;
+  };
 
-  db.transaction(() => {
+  const { decision, injectionEvent, loopEvent } = db.transaction((): TxResult => {
     ensureAgent(db, session_id, undefined, cwd);
 
     // 1. Token budget check
     const agent = getAgent(db, session_id);
     if (agent?.status === "killed") {
-      decision = {
-        block: true,
-        reason: `⛔ AGENTCTL: Agent ${session_id} has been killed by the operator. Stop immediately.`,
+      return {
+        decision: {
+          block: true,
+          reason: `⛔ AGENTCTL: Agent ${session_id} has been killed by the operator. Stop immediately.`,
+        },
+        injectionEvent: null,
+        loopEvent: null,
       };
-      return;
     }
 
     if (agent && isBudgetExceeded(agent)) {
-      decision = {
-        block: true,
-        reason:
-          `⚡ AGENTCTL: Token budget exceeded ` +
-          `(${agent.tokens_used.toLocaleString()} / ${agent.token_budget!.toLocaleString()} tokens). ` +
-          `Summarise your work so far and stop.`,
+      return {
+        decision: {
+          block: true,
+          reason:
+            `⚡ AGENTCTL: Token budget exceeded ` +
+            `(${agent.tokens_used.toLocaleString()} / ${agent.token_budget!.toLocaleString()} tokens). ` +
+            `Summarise your work so far and stop.`,
+        },
+        injectionEvent: null,
+        loopEvent: null,
       };
-      return;
     }
 
     // 2. Pending injection check
     const injection = getPendingInjection(db, session_id);
     if (injection) {
       markDelivered(db, injection.id);
-      injectionEvent = { session_id, message: injection.message };
-      decision = {
-        block: true,
-        reason:
-          `⚡ STEERING SIGNAL from operator: ${injection.message}\n\n` +
-          `Acknowledge this and adjust your current approach accordingly.`,
+      return {
+        decision: {
+          block: true,
+          reason:
+            `⚡ STEERING SIGNAL from operator: ${injection.message}\n\n` +
+            `Acknowledge this and adjust your current approach accordingly.`,
+        },
+        injectionEvent: { session_id, message: injection.message },
+        loopEvent: null,
       };
-      return;
     }
 
     // 3. Loop detection
@@ -64,12 +74,11 @@ export function handlePreTool(
       const message =
         `${tool_name} called with identical arguments ` +
         `${loop.count}x in the last 2 minutes. Try a different approach.`;
-      loopEvent = { session_id, message };
-      decision = {
-        block: true,
-        reason: `⚠️ Loop detected: ${message}`,
+      return {
+        decision: { block: true, reason: `⚠️ Loop detected: ${message}` },
+        injectionEvent: null,
+        loopEvent: { session_id, message },
       };
-      return;
     }
 
     // 4. Record tool call and allow
@@ -79,6 +88,7 @@ export function handlePreTool(
       [session_id, tool_name, hashArgs(tool_input), Date.now()],
     );
     setCurrentTool(db, session_id, tool_name);
+    return { decision: { block: false }, injectionEvent: null, loopEvent: null };
   })();
 
   if (injectionEvent) broadcast?.({ type: "injection_delivered", session_id: injectionEvent.session_id, message: injectionEvent.message });
