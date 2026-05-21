@@ -23,6 +23,14 @@ describe("formatInjectResult", () => {
       status: "not_found",
     })).toBe("✗ Agent missing- not found");
   });
+
+  test("formats not_running sessions with same 8-char label pattern as not_found", () => {
+    expect(formatInjectResult("killed-session", {
+      ok: true,
+      session_id: "killed-session",
+      status: "not_running",
+    })).toBe("✗ Agent killed-s not running");
+  });
 });
 
 describe("renderInjectResult", () => {
@@ -33,6 +41,18 @@ describe("renderInjectResult", () => {
       status: "not_found",
     })).toEqual({
       message: "✗ Agent missing- not found",
+      stream: "stderr",
+      exitCode: 1,
+    });
+  });
+
+  test("renders not_running sessions as a CLI error", () => {
+    expect(renderInjectResult("killed-session", {
+      ok: true,
+      session_id: "killed-session",
+      status: "not_running",
+    })).toEqual({
+      message: "✗ Agent killed-s not running",
       stream: "stderr",
       exitCode: 1,
     });

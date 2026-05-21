@@ -252,8 +252,12 @@ export function createDaemonFetch(
 
       const { session_id, message } = validated.value;
 
-      if (!getAgent(db, session_id)) {
+      const agent = getAgent(db, session_id);
+      if (!agent) {
         return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+      if (agent.status !== "running") {
+        return Response.json({ ok: true, session_id, status: "not_running" });
       }
 
       createInjection(db, session_id, message);
@@ -275,8 +279,12 @@ export function createDaemonFetch(
       if (!validated.ok) return badRequest(validated.error);
 
       const { session_id, tokens } = validated.value;
-      if (!getAgent(db, session_id)) {
+      const capAgent = getAgent(db, session_id);
+      if (!capAgent) {
         return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+      if (capAgent.status !== "running") {
+        return Response.json({ ok: true, session_id, status: "not_running" });
       }
 
       setBudget(db, session_id, tokens);

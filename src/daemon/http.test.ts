@@ -282,6 +282,93 @@ describe("daemon HTTP endpoints", () => {
     expect(events).toEqual([]);
   });
 
+  test("returns not_running for inject and cap against non-running agents without side effects", async () => {
+    const db = createTestDb();
+    const events: AgentEvent[] = [];
+    const fetchDaemon = createDaemonFetch(db, (event) => events.push(event), {
+      authToken: TEST_TOKEN,
+    });
+
+    db.run(
+      `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
+       VALUES (?, 'killed', 0, 0, ?)`,
+      ["killed-agent", Date.now()],
+    );
+    db.run(
+      `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
+       VALUES (?, 'done', 0, 0, ?)`,
+      ["done-agent", Date.now() + 1],
+    );
+
+    const injectKilledResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/inject", { session_id: "killed-agent", message: "hello" }, TEST_TOKEN),
+      ),
+    );
+    const injectDoneResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/inject", { session_id: "done-agent", message: "hello" }, TEST_TOKEN),
+      ),
+    );
+    const capKilledResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/cap", { session_id: "killed-agent", tokens: 100 }, TEST_TOKEN),
+      ),
+    );
+    const capDoneResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/cap", { session_id: "done-agent", tokens: 100 }, TEST_TOKEN),
+      ),
+    );
+
+    const killedInjectionCount = db
+      .query<{ count: number }, string>(
+        "SELECT COUNT(*) as count FROM injections WHERE session_id = ?",
+      )
+      .get("killed-agent");
+    const doneInjectionCount = db
+      .query<{ count: number }, string>(
+        "SELECT COUNT(*) as count FROM injections WHERE session_id = ?",
+      )
+      .get("done-agent");
+    const killedBudget = db
+      .query<{ token_budget: number | null }, string>(
+        "SELECT token_budget FROM agents WHERE session_id = ?",
+      )
+      .get("killed-agent");
+    const doneBudget = db
+      .query<{ token_budget: number | null }, string>(
+        "SELECT token_budget FROM agents WHERE session_id = ?",
+      )
+      .get("done-agent");
+
+    expect(await injectKilledResponse.json()).toEqual({
+      ok: true,
+      session_id: "killed-agent",
+      status: "not_running",
+    });
+    expect(await injectDoneResponse.json()).toEqual({
+      ok: true,
+      session_id: "done-agent",
+      status: "not_running",
+    });
+    expect(await capKilledResponse.json()).toEqual({
+      ok: true,
+      session_id: "killed-agent",
+      status: "not_running",
+    });
+    expect(await capDoneResponse.json()).toEqual({
+      ok: true,
+      session_id: "done-agent",
+      status: "not_running",
+    });
+    expect(killedInjectionCount?.count).toBe(0);
+    expect(doneInjectionCount?.count).toBe(0);
+    expect(killedBudget?.token_budget).toBeNull();
+    expect(doneBudget?.token_budget).toBeNull();
+    expect(events).toEqual([]);
+  });
+
   test("accepts websocket upgrade without token in URL; auth happens via first message", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
