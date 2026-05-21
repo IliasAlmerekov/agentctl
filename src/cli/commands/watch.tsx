@@ -23,6 +23,22 @@ export function reconnectDelay(attempt: number, baseMs = 1000, maxMs = 10_000): 
 
 type Mode = "browse" | "inject" | "cap" | "confirm_kill";
 
+type WatchTickParams = { mode: Mode; running: number; pending: number };
+
+export function watchTickMs(
+  modeOrParams: WatchTickParams | Mode,
+  running?: number,
+  pending?: number,
+): number | null {
+  const params: WatchTickParams =
+    typeof modeOrParams === "object"
+      ? modeOrParams
+      : { mode: modeOrParams, running: running ?? 0, pending: pending ?? 0 };
+  if (params.mode !== "browse") return null;
+  if (params.running === 0 && params.pending === 0) return null;
+  return 5000;
+}
+
 interface Flash {
   text: string;
   color: string;
@@ -55,6 +71,51 @@ export function filterRecentAgents(agents: Agent[], now = Date.now()): Agent[] {
     const anchor = a.ended_at ?? a.started_at;
     return now - anchor < FINISHED_VISIBLE_MS;
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isAgentStatus(value: unknown): value is Agent["status"] {
+  return (
+    value === "running" ||
+    value === "done" ||
+    value === "killed" ||
+    value === "budget_exceeded" ||
+    value === "stale"
+  );
+}
+
+function isAgent(value: unknown): value is Agent {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.session_id === "string" &&
+    (value.parent_id === null || typeof value.parent_id === "string") &&
+    (value.description === null || typeof value.description === "string") &&
+    isAgentStatus(value.status) &&
+    typeof value.depth === "number" &&
+    typeof value.tokens_used === "number" &&
+    (value.token_budget === null || typeof value.token_budget === "number") &&
+    typeof value.started_at === "number" &&
+    (value.ended_at === null || typeof value.ended_at === "number") &&
+    (value.current_tool === null || typeof value.current_tool === "string") &&
+    (value.cwd === null || typeof value.cwd === "string")
+  );
+}
+
+function isAgentEvent(value: unknown): value is AgentEvent {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  switch (value.type) {
+    case "agents_update":
+      return Array.isArray(value.agents) && value.agents.every(isAgent);
+    case "loop_detected":
+    case "budget_exceeded":
+    case "injection_delivered":
+      return typeof value.session_id === "string" && typeof value.message === "string";
+    default:
+      return false;
+  }
 }
 
 function useTerminalWidth(): number {
@@ -371,9 +432,14 @@ function Watch() {
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const runningCount = agents.filter((a) => a.status === "running").length;
+    const pendingCount = pendingInjections.size;
+    const tickMs = watchTickMs({ mode, running: runningCount, pending: pendingCount });
+    if (tickMs == null) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(t);
-  }, []);
+  }, [mode, agents, pendingInjections]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -397,7 +463,15 @@ function Watch() {
       };
 
       ws.onmessage = (e) => {
-        const event: AgentEvent = JSON.parse(e.data as string);
+        if (typeof e.data !== "string") return;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(e.data);
+        } catch {
+          return;
+        }
+        if (!isAgentEvent(parsed)) return;
+        const event = parsed;
         if (event.type === "agents_update") setAgents(filterRecentAgents(event.agents));
         if (event.type === "loop_detected")
           setAlerts((prev) => [...prev.slice(-4), `⚠  ${event.message}`]);
@@ -428,6 +502,10 @@ function Watch() {
 
   useInput((input, key) => {
     if (mode === "browse") {
+      if (input === "q" || key.escape) {
+        process.exit(0);
+      }
+      if (agents.length === 0) return;
       if (key.upArrow) {
         setCursor((c) => Math.max(0, c - cols));
         return;
@@ -443,9 +521,6 @@ function Watch() {
       if (key.rightArrow) {
         setCursor((c) => (c % cols === cols - 1 || c + 1 >= agents.length ? c : c + 1));
         return;
-      }
-      if (input === "q" || key.escape) {
-        process.exit(0);
       }
       if (!selectedAgent || selectedAgent.status !== "running") return;
       if (input === "i") {
@@ -538,7 +613,11 @@ function Watch() {
   });
 
   useEffect(() => {
-    if (agents.length > 0 && cursor >= agents.length) {
+    if (agents.length === 0) {
+      if (cursor !== 0) setCursor(0);
+      return;
+    }
+    if (cursor >= agents.length) {
       setCursor(agents.length - 1);
     }
   }, [agents.length, cursor]);
