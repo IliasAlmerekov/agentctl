@@ -681,6 +681,58 @@ describe("daemon HTTP body limits and validation", () => {
     }
   });
 
+  test("rejects invalid kill payloads with 400 before not_found or DB writes", async () => {
+    const invalidCases = [
+      {
+        name: "missing session_id",
+        body: {},
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id wrong type",
+        body: { session_id: 42 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id whitespace-only",
+        body: { session_id: "  " },
+        error: "session_id must be a non-empty string",
+      },
+    ] as const;
+
+    for (const invalidCase of invalidCases) {
+      const db = createTestDb();
+      seedAgent(db, "agent-a");
+      const fetchDaemon = createDaemonFetch(db, () => {}, {
+        authToken: TEST_TOKEN,
+      });
+
+      const statusBefore = db
+        .query<{ status: string }, string>(
+          "SELECT status FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      const res = expectResponse(
+        await fetchDaemon(jsonRequest("/kill", invalidCase.body, TEST_TOKEN)),
+      );
+      expect(res.status, invalidCase.name).toBe(400);
+      expect(await res.json()).toEqual({
+        ok: false,
+        error: invalidCase.error,
+      });
+
+      const statusAfter = db
+        .query<{ status: string }, string>(
+          "SELECT status FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      expect(statusBefore?.status, invalidCase.name).toBe("running");
+      expect(statusAfter?.status, invalidCase.name).toBe("running");
+    }
+  });
+
   test("rejects injection messages larger than 64 KB UTF-8 bytes with 400", async () => {
     const db = createTestDb();
     seedAgent(db, "big");

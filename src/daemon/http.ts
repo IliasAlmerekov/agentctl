@@ -291,7 +291,15 @@ export function createDaemonFetch(
       );
       if (!parsed.ok) return parsed.response;
 
-      const result = killAgent(db, parsed.body.session_id);
+      const sessionValidation = validateSessionId(parsed.body);
+      if (!sessionValidation.ok) {
+        return Response.json(
+          { ok: false, error: sessionValidation.error },
+          { status: 400 },
+        );
+      }
+
+      const result = killAgent(db, sessionValidation.value);
       if (result.status !== "not_found") {
         broadcast({ type: "agents_update", agents: getAgents(db) });
       }
