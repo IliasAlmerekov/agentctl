@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
-import { reconnectDelay, watchGuard, filterRecentAgents, agentLabel } from "./watch.tsx";
+import { describe, expect, test, spyOn, mock } from "bun:test";
+import { reconnectDelay, watchGuard, filterRecentAgents, agentLabel, tryStartDaemon } from "./watch.tsx";
+import * as apiModule from "../api.ts";
 import type { Agent } from "../../types.ts";
 
 function makeAgent(overrides: Partial<Agent> = {}): Agent {
@@ -102,6 +103,46 @@ describe("filterRecentAgents", () => {
     const recent = makeAgent({ session_id: "f", ended_at: now - 1_000 });
     const old = makeAgent({ session_id: "o", ended_at: now - FOUR_HOURS - 1 });
     expect(filterRecentAgents([running, recent, old], now)).toHaveLength(2);
+  });
+});
+
+
+describe("tryStartDaemon", () => {
+  test("resolves within 3000ms when apiStatus never settles (AbortSignal.timeout guard)", async () => {
+    const hangingApiStatus = mock(() => new Promise<never>(() => {}));
+    spyOn(apiModule, "apiStatus").mockImplementation(hangingApiStatus);
+
+    const start = Date.now();
+    await tryStartDaemon();
+    const elapsed = Date.now() - start;
+
+    expect(elapsed).toBeLessThan(3000);
+  }, 4000);
+
+  test("calls console.warn containing 'agentctl-daemon' when Bun.spawn throws", async () => {
+    spyOn(apiModule, "apiStatus").mockImplementation(() =>
+      Promise.reject(new Error("connection refused"))
+    );
+
+    const origFile = Bun.file;
+    Bun.file = ((_path: unknown) => ({ exists: () => Promise.resolve(true) })) as unknown as typeof Bun.file;
+
+    const origSpawn = Bun.spawn;
+    Bun.spawn = (() => {
+      throw new Error("spawn failed");
+    }) as unknown as typeof Bun.spawn;
+
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+
+    await tryStartDaemon();
+
+    const calls = warnSpy.mock.calls;
+    warnSpy.mockRestore();
+    Bun.file = origFile;
+    Bun.spawn = origSpawn;
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(String(calls[0][0])).toContain("agentctl-daemon");
   });
 });
 
