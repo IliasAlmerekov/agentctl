@@ -252,8 +252,12 @@ export function createDaemonFetch(
 
       const { session_id, message } = validated.value;
 
-      if (!getAgent(db, session_id)) {
+      const agent = getAgent(db, session_id);
+      if (!agent) {
         return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+      if (agent.status !== "running") {
+        return Response.json({ ok: true, session_id, status: "not_running" });
       }
 
       createInjection(db, session_id, message);
@@ -275,8 +279,12 @@ export function createDaemonFetch(
       if (!validated.ok) return badRequest(validated.error);
 
       const { session_id, tokens } = validated.value;
-      if (!getAgent(db, session_id)) {
+      const capAgent = getAgent(db, session_id);
+      if (!capAgent) {
         return Response.json({ ok: true, session_id, status: "not_found" });
+      }
+      if (capAgent.status !== "running") {
+        return Response.json({ ok: true, session_id, status: "not_running" });
       }
 
       setBudget(db, session_id, tokens);
@@ -291,7 +299,15 @@ export function createDaemonFetch(
       );
       if (!parsed.ok) return parsed.response;
 
-      const result = killAgent(db, parsed.body.session_id);
+      const sessionValidation = validateSessionId(parsed.body);
+      if (!sessionValidation.ok) {
+        return Response.json(
+          { ok: false, error: sessionValidation.error },
+          { status: 400 },
+        );
+      }
+
+      const result = killAgent(db, sessionValidation.value);
       if (result.status !== "not_found") {
         broadcast({ type: "agents_update", agents: getAgents(db) });
       }

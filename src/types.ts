@@ -65,7 +65,7 @@ export interface InjectRequest {
   message: string;
 }
 
-export type InjectStatus = "queued" | "not_found";
+export type InjectStatus = "queued" | "not_found" | "not_running";
 
 export type InjectResult =
   | {
@@ -77,6 +77,11 @@ export type InjectResult =
       ok: true;
       session_id: string;
       status: "not_found";
+    }
+  | {
+      ok: true;
+      session_id: string;
+      status: "not_running";
     };
 
 export interface CapRequest {
@@ -84,7 +89,7 @@ export interface CapRequest {
   tokens: number;
 }
 
-export type CapStatus = "set" | "not_found";
+export type CapStatus = "set" | "not_found" | "not_running";
 
 export type CapResult =
   | {
@@ -97,6 +102,11 @@ export type CapResult =
       ok: true;
       session_id: string;
       status: "not_found";
+    }
+  | {
+      ok: true;
+      session_id: string;
+      status: "not_running";
     };
 
 export interface KillRequest {

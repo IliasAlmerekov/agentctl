@@ -282,6 +282,93 @@ describe("daemon HTTP endpoints", () => {
     expect(events).toEqual([]);
   });
 
+  test("returns not_running for inject and cap against non-running agents without side effects", async () => {
+    const db = createTestDb();
+    const events: AgentEvent[] = [];
+    const fetchDaemon = createDaemonFetch(db, (event) => events.push(event), {
+      authToken: TEST_TOKEN,
+    });
+
+    db.run(
+      `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
+       VALUES (?, 'killed', 0, 0, ?)`,
+      ["killed-agent", Date.now()],
+    );
+    db.run(
+      `INSERT INTO agents (session_id, status, depth, tokens_used, started_at)
+       VALUES (?, 'done', 0, 0, ?)`,
+      ["done-agent", Date.now() + 1],
+    );
+
+    const injectKilledResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/inject", { session_id: "killed-agent", message: "hello" }, TEST_TOKEN),
+      ),
+    );
+    const injectDoneResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/inject", { session_id: "done-agent", message: "hello" }, TEST_TOKEN),
+      ),
+    );
+    const capKilledResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/cap", { session_id: "killed-agent", tokens: 100 }, TEST_TOKEN),
+      ),
+    );
+    const capDoneResponse = expectResponse(
+      await fetchDaemon(
+        jsonRequest("/cap", { session_id: "done-agent", tokens: 100 }, TEST_TOKEN),
+      ),
+    );
+
+    const killedInjectionCount = db
+      .query<{ count: number }, string>(
+        "SELECT COUNT(*) as count FROM injections WHERE session_id = ?",
+      )
+      .get("killed-agent");
+    const doneInjectionCount = db
+      .query<{ count: number }, string>(
+        "SELECT COUNT(*) as count FROM injections WHERE session_id = ?",
+      )
+      .get("done-agent");
+    const killedBudget = db
+      .query<{ token_budget: number | null }, string>(
+        "SELECT token_budget FROM agents WHERE session_id = ?",
+      )
+      .get("killed-agent");
+    const doneBudget = db
+      .query<{ token_budget: number | null }, string>(
+        "SELECT token_budget FROM agents WHERE session_id = ?",
+      )
+      .get("done-agent");
+
+    expect(await injectKilledResponse.json()).toEqual({
+      ok: true,
+      session_id: "killed-agent",
+      status: "not_running",
+    });
+    expect(await injectDoneResponse.json()).toEqual({
+      ok: true,
+      session_id: "done-agent",
+      status: "not_running",
+    });
+    expect(await capKilledResponse.json()).toEqual({
+      ok: true,
+      session_id: "killed-agent",
+      status: "not_running",
+    });
+    expect(await capDoneResponse.json()).toEqual({
+      ok: true,
+      session_id: "done-agent",
+      status: "not_running",
+    });
+    expect(killedInjectionCount?.count).toBe(0);
+    expect(doneInjectionCount?.count).toBe(0);
+    expect(killedBudget?.token_budget).toBeNull();
+    expect(doneBudget?.token_budget).toBeNull();
+    expect(events).toEqual([]);
+  });
+
   test("accepts websocket upgrade without token in URL; auth happens via first message", async () => {
     const db = createTestDb();
     const fetchDaemon = createDaemonFetch(db, () => {}, {
@@ -678,6 +765,58 @@ describe("daemon HTTP body limits and validation", () => {
 
       expect(tokenBudgetBefore?.token_budget, invalidCase.name).toBeNull();
       expect(tokenBudgetAfter?.token_budget, invalidCase.name).toBeNull();
+    }
+  });
+
+  test("rejects invalid kill payloads with 400 before not_found or DB writes", async () => {
+    const invalidCases = [
+      {
+        name: "missing session_id",
+        body: {},
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id wrong type",
+        body: { session_id: 42 },
+        error: "session_id must be a non-empty string",
+      },
+      {
+        name: "session_id whitespace-only",
+        body: { session_id: "  " },
+        error: "session_id must be a non-empty string",
+      },
+    ] as const;
+
+    for (const invalidCase of invalidCases) {
+      const db = createTestDb();
+      seedAgent(db, "agent-a");
+      const fetchDaemon = createDaemonFetch(db, () => {}, {
+        authToken: TEST_TOKEN,
+      });
+
+      const statusBefore = db
+        .query<{ status: string }, string>(
+          "SELECT status FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      const res = expectResponse(
+        await fetchDaemon(jsonRequest("/kill", invalidCase.body, TEST_TOKEN)),
+      );
+      expect(res.status, invalidCase.name).toBe(400);
+      expect(await res.json()).toEqual({
+        ok: false,
+        error: invalidCase.error,
+      });
+
+      const statusAfter = db
+        .query<{ status: string }, string>(
+          "SELECT status FROM agents WHERE session_id = ?",
+        )
+        .get("agent-a");
+
+      expect(statusBefore?.status, invalidCase.name).toBe("running");
+      expect(statusAfter?.status, invalidCase.name).toBe("running");
     }
   });
 

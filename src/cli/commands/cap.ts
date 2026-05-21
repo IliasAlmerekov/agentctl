@@ -46,6 +46,8 @@ export function formatCapResult(
       return `✓ Token budget set to ${result.tokens.toLocaleString()} for agent ${label}`;
     case "not_found":
       return `✗ Agent ${label} not found`;
+    case "not_running":
+      return `✗ Agent ${label} not running`;
   }
 }
 
@@ -55,7 +57,7 @@ export function renderCapResult(
 ): CapCommandRender {
   const message = formatCapResult(sessionId, result);
 
-  if (result.status === "not_found") {
+  if (result.status === "not_found" || result.status === "not_running") {
     return { message, stream: "stderr", exitCode: 1 };
   }
 
